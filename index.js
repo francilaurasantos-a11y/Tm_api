@@ -16,14 +16,15 @@ const cache = new NodeCache({ stdTTL: 3600, checkperiod: 600 });
 
 // Middlewares de Segurança e Utilidade
 app.use(helmet({
-  crossOriginResourcePolicy: false, // Necessário para permitir o carregamento do áudio em outros domínios
+  crossOriginResourcePolicy: false, // Permite carregar áudio em outros domínios
 }));
 
-// Configuração de CORS para permitir requisições da sua hospedagem compartilhada
+// Configuração de CORS aberta para produção
 app.use(cors({
-  origin: '*', // Em produção, você pode trocar '*' pelo domínio do seu site (ex: 'https://seusite.com')
-  methods: ['GET'],
-  allowedHeaders: ['Content-Type']
+  origin: '*',
+  methods: ['GET', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Range'],
+  exposedHeaders: ['Content-Range', 'Accept-Ranges', 'Content-Length']
 }));
 
 app.use(express.json());
@@ -51,7 +52,6 @@ const MUSIC_CATEGORIES = [
 
 /**
  * 1. Listar Categorias
- * Endpoint: GET /categories
  */
 app.get('/categories', (req, res) => {
   res.json(MUSIC_CATEGORIES.map(cat => ({ id: cat.id, name: cat.name })));
@@ -59,7 +59,6 @@ app.get('/categories', (req, res) => {
 
 /**
  * 2. Músicas por Categoria
- * Endpoint: GET /category/:id
  */
 app.get('/category/:id', async (req, res) => {
   const categoryId = req.params.id;
@@ -94,7 +93,6 @@ app.get('/category/:id', async (req, res) => {
 
 /**
  * 3. Buscar músicas
- * Endpoint: GET /search?q=nome-da-musica
  */
 app.get('/search', async (req, res) => {
   const query = req.query.q;
@@ -126,42 +124,7 @@ app.get('/search', async (req, res) => {
 });
 
 /**
- * 4. Detalhes da música
- * Endpoint: GET /music/:id
- */
-app.get('/music/:id', async (req, res) => {
-  const videoId = req.params.id;
-  
-  try {
-    const cachedInfo = cache.get(`info_${videoId}`);
-    if (cachedInfo) return res.json(cachedInfo);
-
-    const video = await ytSearch({ videoId: videoId });
-    
-    if (!video) {
-      return res.status(404).json({ error: 'Música não encontrada.' });
-    }
-
-    const details = {
-      title: video.title,
-      description: video.description,
-      views: video.views,
-      likes: 'N/A',
-      uploadDate: video.ago,
-      thumbnail: video.thumbnail
-    };
-
-    cache.set(`info_${videoId}`, details);
-    res.json(details);
-  } catch (error) {
-    console.error('Erro ao obter detalhes:', error);
-    res.status(500).json({ error: 'Erro ao obter detalhes da música.' });
-  }
-});
-
-/**
- * 5. Stream de áudio
- * Endpoint: GET /stream/:id
+ * 4. Stream de áudio (Otimizado para Player HTML5)
  */
 app.get('/stream/:id', async (req, res) => {
   const videoId = req.params.id;
@@ -174,8 +137,10 @@ app.get('/stream/:id', async (req, res) => {
       return res.status(403).json({ error: 'A música excede o limite de 10 minutos.' });
     }
 
+    // Headers essenciais para streaming e player HTML5
     res.setHeader('Content-Type', 'audio/mpeg');
-    res.setHeader('Transfer-Encoding', 'chunked');
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('Access-Control-Allow-Origin', '*');
 
     const audioStream = ytdl(videoId, {
       quality: 'highestaudio',
@@ -183,6 +148,7 @@ app.get('/stream/:id', async (req, res) => {
       highWaterMark: 1 << 25
     });
 
+    // Converter para MP3 em tempo real
     ffmpeg(audioStream)
       .audioBitrate(128)
       .format('mp3')
@@ -203,7 +169,7 @@ app.get('/stream/:id', async (req, res) => {
 });
 
 app.get('/', (req, res) => {
-  res.send('YouTube Music API (VPS 143.14.79.216) está rodando!');
+  res.send('YouTube Music API (HTTPS 143.14.79.216) está rodando!');
 });
 
 app.listen(port, () => {
