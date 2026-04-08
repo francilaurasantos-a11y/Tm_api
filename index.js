@@ -12,13 +12,12 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // CONFIGURAÇÃO CRÍTICA PARA NGINX/PROXY
-// Isso resolve o erro 'ValidationError: The X-Forwarded-For header is set but the Express trust proxy setting is false'
 app.set('trust proxy', 1);
 
-// Configuração de Cache (1 hora de expiração padrão)
+// Configuração de Cache
 const cache = new NodeCache({ stdTTL: 3600, checkperiod: 600 });
 
-// Middlewares de Segurança e Utilidade
+// Middlewares de Segurança
 app.use(helmet({
   crossOriginResourcePolicy: false,
   contentSecurityPolicy: false,
@@ -35,17 +34,17 @@ app.use(cors({
 
 app.use(express.json());
 
-// Rate Limit ajustado para funcionar com Proxy
+// Rate Limit
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200, // Aumentado para evitar bloqueios em testes
+  max: 300,
   message: { error: 'Muitas requisições, tente novamente mais tarde.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 app.use(limiter);
 
-// Lista de categorias predefinidas
+// Lista de categorias
 const MUSIC_CATEGORIES = [
   { id: 'pop', name: 'Pop Music', query: 'pop music 2024' },
   { id: 'rock', name: 'Rock', query: 'rock classics' },
@@ -112,7 +111,7 @@ app.get('/search', async (req, res) => {
 });
 
 /**
- * 4. Stream de áudio (CORREÇÃO PARA FORMATOS NÃO ENCONTRADOS)
+ * 4. Stream de áudio (ESTRATÉGIA DE CONTORNO DE BLOQUEIO)
  */
 app.get('/stream/:id', async (req, res) => {
   const videoId = req.params.id;
@@ -123,24 +122,32 @@ app.get('/stream/:id', async (req, res) => {
     res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('Access-Control-Allow-Origin', '*');
 
-    // Opções otimizadas para evitar bloqueios do YouTube
-    const audioStream = ytdl(videoId, {
+    // Opções de streaming para evitar o erro "Failed to find any playable formats"
+    const streamOptions = {
       quality: 'highestaudio',
       filter: 'audioonly',
       highWaterMark: 1 << 25,
       requestOptions: {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+          'Accept': '*/*',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Connection': 'keep-alive',
         }
       }
-    });
+    };
+
+    const audioStream = ytdl(videoId, streamOptions);
 
     // Converter para MP3 em tempo real
     ffmpeg(audioStream)
       .audioBitrate(128)
       .format('mp3')
+      .on('start', () => {
+        console.log(`Streaming iniciado para o vídeo: ${videoId}`);
+      })
       .on('error', (err) => {
-        console.error('Erro no FFmpeg:', err.message);
+        console.error(`Erro no FFmpeg para o vídeo ${videoId}:`, err.message);
         if (!res.headersSent) {
           res.status(500).send('Erro no processamento de áudio.');
         }
