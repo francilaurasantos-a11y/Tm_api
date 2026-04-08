@@ -111,18 +111,17 @@ app.get('/search', async (req, res) => {
 });
 
 /**
- * 4. Stream de áudio (ESTRATÉGIA DE CONTORNO DE BLOQUEIO)
+ * 4. Stream de áudio (COM AUTENTICAÇÃO VIA COOKIES)
  */
 app.get('/stream/:id', async (req, res) => {
   const videoId = req.params.id;
   
   try {
-    // Headers essenciais para streaming
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('Access-Control-Allow-Origin', '*');
 
-    // Opções de streaming para evitar o erro "Failed to find any playable formats"
+    // Opções de streaming com suporte a cookies para evitar bloqueios
     const streamOptions = {
       quality: 'highestaudio',
       filter: 'audioonly',
@@ -130,24 +129,21 @@ app.get('/stream/:id', async (req, res) => {
       requestOptions: {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-          'Accept': '*/*',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'Connection': 'keep-alive',
+          'Cookie': process.env.YOUTUBE_COOKIE || '' // Usa o cookie do .env
         }
       }
     };
 
     const audioStream = ytdl(videoId, streamOptions);
 
-    // Converter para MP3 em tempo real
     ffmpeg(audioStream)
       .audioBitrate(128)
       .format('mp3')
       .on('start', () => {
-        console.log(`Streaming iniciado para o vídeo: ${videoId}`);
+        console.log(`Streaming autenticado iniciado: ${videoId}`);
       })
       .on('error', (err) => {
-        console.error(`Erro no FFmpeg para o vídeo ${videoId}:`, err.message);
+        console.error(`Erro no FFmpeg (${videoId}):`, err.message);
         if (!res.headersSent) {
           res.status(500).send('Erro no processamento de áudio.');
         }
