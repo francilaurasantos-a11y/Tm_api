@@ -17,14 +17,16 @@ const cache = new NodeCache({ stdTTL: 3600, checkperiod: 600 });
 // Middlewares de Segurança e Utilidade
 app.use(helmet({
   crossOriginResourcePolicy: false, // Permite carregar áudio em outros domínios
+  contentSecurityPolicy: false, // Desativa CSP para evitar bloqueios de mídia
 }));
 
-// Configuração de CORS aberta para produção
+// Configuração de CORS ULTRA-PERMISSIVA para produção
 app.use(cors({
   origin: '*',
   methods: ['GET', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Range'],
-  exposedHeaders: ['Content-Range', 'Accept-Ranges', 'Content-Length']
+  allowedHeaders: ['Content-Type', 'Range', 'Authorization'],
+  exposedHeaders: ['Content-Range', 'Accept-Ranges', 'Content-Length'],
+  credentials: true
 }));
 
 app.use(express.json());
@@ -141,6 +143,8 @@ app.get('/stream/:id', async (req, res) => {
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type');
 
     const audioStream = ytdl(videoId, {
       quality: 'highestaudio',
