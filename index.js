@@ -5,8 +5,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const NodeCache = require('node-cache');
 const ytSearch = require('yt-search');
-const ytdl = require('@distube/ytdl-core');
-const ffmpeg = require('fluent-ffmpeg');
+const { spawn } = require('child_process');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -111,57 +110,55 @@ app.get('/search', async (req, res) => {
 });
 
 /**
- * 4. Stream de áudio (COM AUTENTICAÇÃO VIA COOKIES)
+ * 4. Stream de áudio (ESTRATÉGIA DEFINITIVA COM YT-DLP E HEADERS)
  */
-app.get('/stream/:id', async (req, res) => {
+app.get('/stream/:id', (req, res) => {
   const videoId = req.params.id;
-  
-  try {
-    res.setHeader('Content-Type', 'audio/mpeg');
-    res.setHeader('Accept-Ranges', 'bytes');
-    res.setHeader('Access-Control-Allow-Origin', '*');
+  const youtubeCookie = process.env.YOUTUBE_COOKIE || '';
 
-    // Opções de streaming com suporte a cookies para evitar bloqueios
-    const streamOptions = {
-      quality: 'highestaudio',
-      filter: 'audioonly',
-      highWaterMark: 1 << 25,
-      requestOptions: {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-          'Cookie': process.env.YOUTUBE_COOKIE || '' // Usa o cookie do .env
-        }
-      }
-    };
+  res.setHeader('Content-Type', 'audio/mpeg');
+  res.setHeader('Accept-Ranges', 'bytes');
+  res.setHeader('Access-Control-Allow-Origin', '*');
 
-    const audioStream = ytdl(videoId, streamOptions);
+  console.log(`Iniciando stream definitivo para: ${videoId}`);
 
-    ffmpeg(audioStream)
-      .audioBitrate(128)
-      .format('mp3')
-      .on('start', () => {
-        console.log(`Streaming autenticado iniciado: ${videoId}`);
-      })
-      .on('error', (err) => {
-        console.error(`Erro no FFmpeg (${videoId}):`, err.message);
-        if (!res.headersSent) {
-          res.status(500).send('Erro no processamento de áudio.');
-        }
-      })
-      .pipe(res, { end: true });
+  // Argumentos para o yt-dlp usando o cookie via header para evitar erro de formato de arquivo
+  const ytdlpArgs = [
+    '--add-header', `Cookie:${youtubeCookie}`,
+    '-f', 'bestaudio',
+    '--limit-rate', '1M',
+    '-o', '-',
+    `https://www.youtube.com/watch?v=${videoId}`
+  ];
 
-  } catch (error) {
-    console.error('Erro no streaming:', error);
-    if (!res.headersSent) {
-      res.status(500).json({ error: 'Erro ao iniciar o streaming de áudio.' });
-    }
-  }
+  const ytdlp = spawn('/usr/local/bin/yt-dlp', ytdlpArgs);
+
+  const ffmpeg = spawn('ffmpeg', [
+    '-i', 'pipe:0',
+    '-acodec', 'libmp3lame',
+    '-ab', '128k',
+    '-f', 'mp3',
+    'pipe:1'
+  ]);
+
+  ytdlp.stdout.pipe(ffmpeg.stdin);
+  ffmpeg.stdout.pipe(res);
+
+  ytdlp.stderr.on('data', (data) => {
+    const msg = data.toString();
+    if (msg.includes('ERROR')) console.error(`yt-dlp ERROR: ${msg}`);
+  });
+
+  req.on('close', () => {
+    ytdlp.kill();
+    ffmpeg.kill();
+  });
 });
 
 app.get('/', (req, res) => {
-  res.send('YouTube Music API (HTTPS 143.14.79.216) está rodando!');
+  res.send('YouTube Music API (Definitiva) está rodando!');
 });
 
 app.listen(port, () => {
-  console.log(`Servidor rodando em http://localhost:${port}`);
+  console.log(`Servidor rodando na porta ${port}`);
 });
