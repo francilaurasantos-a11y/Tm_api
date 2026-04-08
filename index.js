@@ -15,8 +15,17 @@ const port = process.env.PORT || 3000;
 const cache = new NodeCache({ stdTTL: 3600, checkperiod: 600 });
 
 // Middlewares de Segurança e Utilidade
-app.use(helmet());
-app.use(cors());
+app.use(helmet({
+  crossOriginResourcePolicy: false, // Necessário para permitir o carregamento do áudio em outros domínios
+}));
+
+// Configuração de CORS para permitir requisições da sua hospedagem compartilhada
+app.use(cors({
+  origin: '*', // Em produção, você pode trocar '*' pelo domínio do seu site (ex: 'https://seusite.com')
+  methods: ['GET'],
+  allowedHeaders: ['Content-Type']
+}));
+
 app.use(express.json());
 
 // Rate Limit: 100 requisições a cada 15 minutos por IP
@@ -27,7 +36,7 @@ const limiter = rateLimit({
 });
 app.use(limiter);
 
-// Lista de categorias predefinidas para facilitar a navegação
+// Lista de categorias predefinidas
 const MUSIC_CATEGORIES = [
   { id: 'pop', name: 'Pop Music', query: 'pop music 2024' },
   { id: 'rock', name: 'Rock', query: 'rock classics' },
@@ -161,7 +170,6 @@ app.get('/stream/:id', async (req, res) => {
     const video = await ytSearch({ videoId: videoId });
     if (!video) return res.status(404).json({ error: 'Vídeo não encontrado.' });
 
-    // Limite de 10 minutos (600 segundos) para evitar sobrecarga na VPS
     if (video.seconds > 600) {
       return res.status(403).json({ error: 'A música excede o limite de 10 minutos.' });
     }
@@ -195,7 +203,7 @@ app.get('/stream/:id', async (req, res) => {
 });
 
 app.get('/', (req, res) => {
-  res.send('YouTube Music API para VPS está rodando!');
+  res.send('YouTube Music API (VPS 143.14.79.216) está rodando!');
 });
 
 app.listen(port, () => {
