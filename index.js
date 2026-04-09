@@ -110,7 +110,7 @@ app.get('/search', async (req, res) => {
 });
 
 /**
- * 4. Stream de áudio (ESTRATÉGIA DEFINITIVA COM YT-DLP E HEADERS)
+ * 4. Stream de áudio (ESTRATÉGIA DEFINITIVA COM YT-DLP E FORMATOS FLEXÍVEIS)
  */
 app.get('/stream/:id', (req, res) => {
   const videoId = req.params.id;
@@ -122,10 +122,10 @@ app.get('/stream/:id', (req, res) => {
 
   console.log(`Iniciando stream definitivo para: ${videoId}`);
 
-  // Argumentos para o yt-dlp usando o cookie via header para evitar erro de formato de arquivo
+  // Argumentos para o yt-dlp com formato flexível para evitar 'Requested format is not available'
   const ytdlpArgs = [
     '--add-header', `Cookie:${youtubeCookie}`,
-    '-f', 'bestaudio',
+    '-f', 'ba/b', // Tenta melhor áudio (ba), se não der, pega o melhor disponível (b)
     '--limit-rate', '1M',
     '-o', '-',
     `https://www.youtube.com/watch?v=${videoId}`
