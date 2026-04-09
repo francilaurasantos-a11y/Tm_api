@@ -13,48 +13,108 @@ const port = process.env.PORT || 3000;
 // CONFIGURAÇÕES DE CONTROLE
 const ADMIN_CODE = "@2207";
 
-// LISTA COMPLETA DE CATEGORIAS DE MÚSICA
+// LISTA COMPLETA E EXPANDIDA DE CATEGORIAS DE MÚSICA BRASILEIRA 🇧🇷
 const MUSIC_CATEGORIES = [
-  { id: 'pop', name: 'Pop Music', query: 'pop music 2024' },
-  { id: 'rock', name: 'Rock', query: 'rock classics' },
-  { id: 'lofi', name: 'Lofi Hip Hop', query: 'lofi hip hop radio' },
-  { id: 'jazz', name: 'Jazz', query: 'jazz relaxante' },
-  { id: 'electronic', name: 'Electronic/EDM', query: 'electronic dance music' },
-  { id: 'acoustic', name: 'Acoustic', query: 'acoustic covers' },
-  { id: 'classical', name: 'Classical', query: 'classical music' },
-  { id: 'hiphop', name: 'Hip Hop', query: 'hip hop hits' },
-  { id: 'brazil', name: 'Brasil Hits', query: 'musicas mais tocadas brasil' },
-  { id: 'funk', name: 'Funk Brasil', query: 'funk brasil 2024' },
-  { id: 'gospel', name: 'Gospel', query: 'gospel musicas' },
-  { id: 'sertanejo', name: 'Sertanejo', query: 'sertanejo 2024' },
-  { id: 'rap', name: 'Rap Nacional', query: 'rap nacional' },
-  { id: 'reggae', name: 'Reggae', query: 'reggae hits' },
-  { id: 'kpop', name: 'K-Pop', query: 'kpop hits' }
+  // SERTANEJO
+  { id: 'sertanejo-raiz', name: 'Sertanejo Raiz', query: 'sertanejo raiz modão' },
+  { id: 'sertanejo-universitario', name: 'Sertanejo Universitário', query: 'sertanejo universitário 2024' },
+  { id: 'sertanejo-romantico', name: 'Sertanejo Romântico', query: 'sertanejo romântico' },
+  { id: 'modao', name: 'Modão', query: 'modão sertanejo' },
+  { id: 'sertanejo-pop', name: 'Sertanejo Pop', query: 'sertanejo pop' },
+  
+  // SAMBA
+  { id: 'samba-tradicional', name: 'Samba Tradicional', query: 'samba tradicional' },
+  { id: 'samba-raiz', name: 'Samba de Raiz', query: 'samba de raiz' },
+  { id: 'partido-alto', name: 'Partido Alto', query: 'partido alto samba' },
+  { id: 'samba-enredo', name: 'Samba-Enredo', query: 'samba enredo 2024' },
+  { id: 'samba-cancao', name: 'Samba-Canção', query: 'samba canção' },
+  
+  // PAGODE
+  { id: 'pagode-90', name: 'Pagode 90', query: 'pagode anos 90' },
+  { id: 'pagode-romantico', name: 'Pagode Romântico', query: 'pagode romântico' },
+  { id: 'pagode-moderno', name: 'Pagode Moderno', query: 'pagode atual 2024' },
+  
+  // FUNK
+  { id: 'funk-carioca', name: 'Funk Carioca', query: 'funk carioca' },
+  { id: 'funk-ostentacao', name: 'Funk Ostentação', query: 'funk ostentação' },
+  { id: 'funk-consciente', name: 'Funk Consciente', query: 'funk consciente' },
+  { id: 'funk-proibidao', name: 'Funk Proibidão', query: 'funk proibidão' },
+  { id: 'funk-rave', name: 'Funk Rave', query: 'funk rave' },
+  { id: 'funk-melody', name: 'Funk Melody', query: 'funk melody' },
+  
+  // MPB
+  { id: 'mpb-classica', name: 'MPB Clássica', query: 'mpb clássica' },
+  { id: 'mpb-moderna', name: 'MPB Moderna', query: 'mpb moderna' },
+  { id: 'mpb-acustica', name: 'MPB Acústica', query: 'mpb acústica' },
+  
+  // FORRÓ
+  { id: 'forro-pe-de-serra', name: 'Forró Pé de Serra', query: 'forró pé de serra' },
+  { id: 'forro-eletronico', name: 'Forró Eletrônico', query: 'forró eletrônico' },
+  { id: 'forro-universitario', name: 'Forró Universitário', query: 'forró universitário' },
+  
+  // AXÉ
+  { id: 'axe-classico', name: 'Axé Clássico', query: 'axé clássico' },
+  { id: 'axe-pop', name: 'Axé Pop', query: 'axé pop' },
+  
+  // BREGA / TECNOBREGA
+  { id: 'brega-tradicional', name: 'Brega Tradicional', query: 'brega tradicional' },
+  { id: 'tecnobrega', name: 'Tecnobrega', query: 'tecnobrega' },
+  { id: 'brega-funk', name: 'Brega Funk', query: 'brega funk 2024' },
+  { id: 'brega-romantico', name: 'Brega Romântico', query: 'brega romântico' },
+  
+  // ARROCHA
+  { id: 'arrocha-romantico', name: 'Arrocha Romântico', query: 'arrocha romântico' },
+  { id: 'arrocha-moderno', name: 'Arrocha Moderno', query: 'arrocha moderno' },
+  
+  // PISEIRO
+  { id: 'piseiro-eletronico', name: 'Piseiro Eletrônico', query: 'piseiro eletrônico' },
+  { id: 'piseiro-tradicional', name: 'Piseiro Tradicional', query: 'piseiro tradicional' },
+  
+  // RAP / HIP HOP BR
+  { id: 'rap-nacional', name: 'Rap Nacional', query: 'rap nacional' },
+  { id: 'trap-br', name: 'Trap BR', query: 'trap brasil 2024' },
+  { id: 'drill-br', name: 'Drill BR', query: 'drill brasil' },
+  { id: 'boom-bap-br', name: 'Boom Bap BR', query: 'boom bap brasil' },
+  
+  // ROCK BRASILEIRO
+  { id: 'rock-nacional', name: 'Rock Nacional', query: 'rock nacional clássicos' },
+  { id: 'rock-alternativo-br', name: 'Rock Alternativo BR', query: 'rock alternativo brasil' },
+  { id: 'indie-br', name: 'Indie BR', query: 'indie brasil' },
+  
+  // JAZZ / BLUES BRASILEIRO
+  { id: 'jazz-brasileiro', name: 'Jazz Brasileiro', query: 'jazz brasileiro' },
+  { id: 'bossa-nova', name: 'Bossa Nova', query: 'bossa nova' },
+  { id: 'samba-jazz', name: 'Samba-Jazz', query: 'samba jazz' },
+  
+  // REGIONAL / FOLCLÓRICA
+  { id: 'carimbo', name: 'Carimbó', query: 'carimbó' },
+  { id: 'baiao', name: 'Baião', query: 'baião' },
+  { id: 'xote', name: 'Xote', query: 'xote' },
+  { id: 'xaxado', name: 'Xaxado', query: 'xaxado' },
+  { id: 'maracatu', name: 'Maracatu', query: 'maracatu' },
+  { id: 'frevo', name: 'Frevo', query: 'frevo' },
+  { id: 'choro', name: 'Choro', query: 'chorinho brasileiro' },
+  { id: 'moda-de-viola', name: 'Moda de Viola', query: 'moda de viola' },
+  { id: 'vanerao', name: 'Vanerão', query: 'vanerão' },
+  { id: 'musica-gaucha', name: 'Música Gaúcha', query: 'música gaúcha' },
+  
+  // GOSPEL
+  { id: 'gospel-tradicional', name: 'Gospel Tradicional', query: 'gospel tradicional' },
+  { id: 'gospel-pentecostal', name: 'Gospel Pentecostal', query: 'gospel pentecostal' },
+  { id: 'worship', name: 'Worship', query: 'worship gospel' },
+  
+  // OUTROS
+  { id: 'lofi-br', name: 'Lo-fi BR', query: 'lofi brasil' },
+  { id: 'instrumental', name: 'Instrumental', query: 'instrumental brasileiro' },
+  { id: 'infantil', name: 'Infantil', query: 'música infantil brasileira' },
+  { id: 'trilhas-sonoras', name: 'Trilhas Sonoras', query: 'trilhas sonoras novelas' }
 ];
 
 // Gerenciamento de Sites (3 Sites) com detecção automática de categorias
 let sites = {
-  "site1": { 
-    name: "Site 1 (Principal)", 
-    enabled: true, 
-    domain: "tminfinity.x10.mx", 
-    requests: 0,
-    detectedCategories: {} // Será preenchido automaticamente: { "pop": 10, "rock": 5 }
-  },
-  "site2": { 
-    name: "Site 2 (Reserva)", 
-    enabled: true, 
-    domain: "site2.com", 
-    requests: 0,
-    detectedCategories: {}
-  },
-  "site3": { 
-    name: "Site 3 (Teste)", 
-    enabled: true, 
-    domain: "site3.com", 
-    requests: 0,
-    detectedCategories: {}
-  }
+  "site1": { name: "Site 1 (Principal)", enabled: true, domain: "tminfinity.x10.mx", requests: 0, detectedCategories: {} },
+  "site2": { name: "Site 2 (Reserva)", enabled: true, domain: "site2.com", requests: 0, detectedCategories: {} },
+  "site3": { name: "Site 3 (Teste)", enabled: true, domain: "site3.com", requests: 0, detectedCategories: {} }
 };
 
 // CONFIGURAÇÃO CRÍTICA PARA NGINX/PROXY
@@ -79,15 +139,12 @@ app.use(express.urlencoded({ extended: true }));
 // Middleware de Verificação de Status e Validação de Site
 const checkSiteStatus = (req, res, next) => {
   if (req.path.startsWith('/admin')) return next();
-
   const siteId = req.headers['x-site-id'] || 'site1';
   const site = sites[siteId];
-
   if (!site || !site.enabled) {
     stats.blockedRequests++;
     return res.status(503).json({ error: `O acesso para o ${site ? site.name : 'Site'} está desativado.` });
   }
-
   site.requests++;
   stats.totalRequests++;
   next();
@@ -158,7 +215,7 @@ app.post('/admin/dashboard', (req, res) => {
         </form>
         <hr style="border: 0; border-top: 1px solid #333; margin: 10px 0;">
         <h4>Categorias Detectadas:</h4>
-        <div style="font-size: 13px; color: #aaa; max-height: 150px; overflow-y: auto; padding-right: 5px;">
+        <div style="font-size: 13px; color: #aaa; max-height: 200px; overflow-y: auto; padding-right: 5px;">
           ${categoriesHtml || '<p style="font-style: italic;">Nenhuma categoria detectada ainda.</p>'}
         </div>
       </div>
@@ -219,7 +276,6 @@ app.post('/admin/toggle', (req, res) => {
 
 // Endpoints de Música com Detecção Automática
 app.get('/categories', (req, res) => {
-  // Retorna todas as categorias disponíveis para o site escolher
   res.json(MUSIC_CATEGORIES.map(cat => ({ id: cat.id, name: cat.name })));
 });
 
@@ -227,32 +283,19 @@ app.get('/category/:id', async (req, res) => {
   const categoryId = req.params.id;
   const siteId = req.headers['x-site-id'] || 'site1';
   const site = sites[siteId];
-
   if (!site) return res.status(403).json({ error: 'Site não identificado.' });
-
-  // DETECÇÃO AUTOMÁTICA: Se o site pediu essa categoria, a API "aprende" que ele a possui
   if (site.detectedCategories[categoryId] === undefined) {
     site.detectedCategories[categoryId] = 1;
   } else {
     site.detectedCategories[categoryId]++;
   }
-
   const category = MUSIC_CATEGORIES.find(c => c.id === categoryId);
   if (!category) return res.status(404).json({ error: 'Categoria não encontrada.' });
-  
   try {
     const cachedResult = cache.get(`category_${categoryId}`);
     if (cachedResult) return res.json(cachedResult);
-    
     const r = await ytSearch(category.query);
-    const songs = r.videos.slice(0, 100).map(v => ({ 
-      title: v.title, 
-      artist: v.author.name, 
-      thumbnail: v.thumbnail, 
-      duration: v.timestamp, 
-      videoId: v.videoId 
-    }));
-    
+    const songs = r.videos.slice(0, 100).map(v => ({ title: v.title, artist: v.author.name, thumbnail: v.thumbnail, duration: v.timestamp, videoId: v.videoId }));
     cache.set(`category_${categoryId}`, songs);
     res.json(songs);
   } catch (e) { res.status(500).json({ error: 'Erro ao carregar categoria.' }); }
@@ -286,5 +329,5 @@ app.get('/stream/:id', (req, res) => {
   req.on('close', () => { stats.activeStreams = Math.max(0, stats.activeStreams - 1); ytdlp.kill(); ffmpeg.kill(); });
 });
 
-app.get('/', (req, res) => res.send('API TM Infinity com Detecção Automática rodando!'));
+app.get('/', (req, res) => res.send('API TM Infinity com Todas as Categorias Brasileiras rodando!'));
 app.listen(port, () => console.log(`Servidor na porta ${port}`));
