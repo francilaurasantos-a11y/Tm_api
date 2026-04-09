@@ -314,18 +314,42 @@ app.get('/category/:id', async (req, res) => {
     const targetCount = 100;
 
     const performSearch = async () => {
+      // TENTATIVA 1: BUSCA RÁPIDA (PARA RESPONDER LOGO AO USUÁRIO)
+      try {
+        const r = await ytSearch({ query: baseQuery, pages: 1 });
+        if (r && r.videos && r.videos.length > 0) {
+          r.videos.forEach(v => {
+            if (!uniqueVideoIds.has(v.videoId)) {
+              uniqueVideoIds.add(v.videoId);
+              allSongs.push({
+                title: v.title,
+                artist: v.author.name,
+                thumbnail: v.thumbnail,
+                duration: v.timestamp,
+                videoId: v.videoId
+              });
+            }
+          });
+        }
+      } catch (e) { console.error("Erro na busca rápida:", e); }
+
+      // RESPONDE IMEDIATAMENTE COM O QUE ENCONTROU (EVITA ERRO 520)
+      if (allSongs.length > 0) {
+        res.json(allSongs);
+      } else {
+        // Se não achou nada na rápida, espera um pouco mais pela segunda query
+        console.log("Busca rápida vazia, tentando variação antes de responder...");
+      }
+
+      // TENTATIVA 2: BUSCA PROFUNDA EM SEGUNDO PLANO (PARA COMPLETAR 100)
       for (const currentQuery of queryVariations) {
         if (allSongs.length >= targetCount) break;
         
-        console.log(`Buscando com a query: '${currentQuery}'`);
         try {
-          // Busca rápida (1 página) para evitar bloqueios e ser mais ágil
-          const r = await ytSearch({ query: currentQuery, pages: 1 });
-          
+          const r = await ytSearch({ query: currentQuery, pages: 2 });
           if (r && r.videos && r.videos.length > 0) {
             for (const v of r.videos) {
               if (allSongs.length >= targetCount) break;
-              
               if (!uniqueVideoIds.has(v.videoId)) {
                 uniqueVideoIds.add(v.videoId);
                 allSongs.push({
@@ -337,19 +361,17 @@ app.get('/category/:id', async (req, res) => {
                 });
               }
             }
-            console.log(`Total acumulado para ${category.name}: ${allSongs.length} músicas.`);
           }
-        } catch (error) {
-          console.error(`Erro ao buscar query '${currentQuery}':`, error.message);
-        }
+        } catch (error) { console.error(`Erro em background para ${currentQuery}:`, error.message); }
       }
 
-      console.log(`Busca finalizada para ${category.name}. Total: ${allSongs.length} músicas.`);
-      
+      // SALVA A LISTA COMPLETA NO CACHE PARA A PRÓXIMA VEZ
       if (allSongs.length > 0) {
+        console.log(`Busca de background finalizada para ${category.name}. Total: ${allSongs.length} músicas.`);
         cache.set(`category_${categoryId}`, allSongs);
-        res.json(allSongs);
-      } else {
+        // Se a busca rápida foi vazia, responde agora (se ainda não respondeu)
+        if (!res.headersSent) res.json(allSongs);
+      } else if (!res.headersSent) {
         res.status(404).json({ error: "Nenhuma música encontrada." });
       }
     };
