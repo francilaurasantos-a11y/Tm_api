@@ -292,31 +292,39 @@ app.get('/category/:id', async (req, res) => {
     const cachedResult = cache.get(`category_${categoryId}`);
     if (cachedResult) return res.json(cachedResult);
     
-    // LÓGICA DE BUSCA AGRESSIVA PARA GARANTIR 100 MÚSICAS
-    console.log(`Iniciando busca agressiva para: ${category.name}`);
+    // LÓGICA DE BUSCA ULTRA-AGRESSIVA PARA GARANTIR 100 MÚSICAS
+    console.log(`Iniciando busca ultra-agressiva para: ${category.name}`);
     let allSongs = [];
     let uniqueVideoIds = new Set();
     const targetCount = 100;
-    const maxAttempts = 5; // Número máximo de tentativas de busca com queries variadas
     
     const baseQuery = category.query;
+    // Lista de variações para forçar o YouTube a mostrar resultados diferentes
     const queryVariations = [
       baseQuery,
+      `${baseQuery} 2024`,
+      `${baseQuery} 2025`,
       `${baseQuery} hits`,
       `${baseQuery} melhores`,
       `${baseQuery} top`,
-      `${baseQuery} sucessos`
+      `${baseQuery} sucessos`,
+      `${baseQuery} oficial`,
+      `${baseQuery} playlist`,
+      `${baseQuery} ao vivo`
     ];
 
-    for (let attempt = 0; attempt < maxAttempts && allSongs.length < targetCount; attempt++) {
-      const currentQuery = queryVariations[attempt % queryVariations.length]; // Cicla pelas variações
-      console.log(`Tentativa ${attempt + 1}: Buscando com a query '${currentQuery}'`);
+    for (const currentQuery of queryVariations) {
+      if (allSongs.length >= targetCount) break;
       
+      console.log(`Buscando com a query: '${currentQuery}'`);
       try {
-        const r = await ytSearch({ query: currentQuery, pages: 2 }); // Busca em 2 páginas por variação
+        // Busca profunda em cada variação (até 3 páginas)
+        const r = await ytSearch({ query: currentQuery, pages: 3 });
         
         if (r && r.videos && r.videos.length > 0) {
-          r.videos.forEach(v => {
+          for (const v of r.videos) {
+            if (allSongs.length >= targetCount) break;
+            
             if (!uniqueVideoIds.has(v.videoId)) {
               uniqueVideoIds.add(v.videoId);
               allSongs.push({
@@ -327,21 +335,18 @@ app.get('/category/:id', async (req, res) => {
                 videoId: v.videoId
               });
             }
-          });
-          console.log(`Tentativa ${attempt + 1} adicionou ${r.videos.length} vídeos. Total de vídeos únicos até agora: ${allSongs.length}`);
-        } else {
-          console.log(`Nenhum vídeo encontrado para a query '${currentQuery}' nesta tentativa.`);
+          }
+          console.log(`Total acumulado para ${category.name}: ${allSongs.length} músicas.`);
         }
       } catch (error) {
-        console.error(`Erro na tentativa ${attempt + 1} com a query '${currentQuery}':`, error.message);
+        console.error(`Erro ao buscar query '${currentQuery}':`, error.message);
       }
     }
 
-    const finalSongs = allSongs.slice(0, targetCount);
-    console.log(`Busca concluída para ${category.name}. Total de músicas finais: ${finalSongs.length}`);
+    console.log(`Busca finalizada para ${category.name}. Total: ${allSongs.length} músicas.`);
     
-    cache.set(`category_${categoryId}`, finalSongs);
-    res.json(finalSongs);
+    cache.set(`category_${categoryId}`, allSongs);
+    res.json(allSongs);
   } catch (e) { 
     console.error(e);
     res.status(500).json({ error: 'Erro ao carregar categoria.' }); 
