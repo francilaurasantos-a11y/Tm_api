@@ -14,17 +14,48 @@ const port = process.env.PORT || 3000;
 // CONFIGURAÇÕES DE CONTROLE
 const ADMIN_CODE = "@2207";
 
-// Gerenciamento de Sites (3 Sites)
+// Lista de categorias
+const MUSIC_CATEGORIES = [
+  { id: 'pop', name: 'Pop Music', query: 'pop music 2024' },
+  { id: 'rock', name: 'Rock', query: 'rock classics' },
+  { id: 'lofi', name: 'Lofi Hip Hop', query: 'lofi hip hop radio' },
+  { id: 'jazz', name: 'Jazz', query: 'jazz relaxante' },
+  { id: 'electronic', name: 'Electronic/EDM', query: 'electronic dance music' },
+  { id: 'acoustic', name: 'Acoustic', query: 'acoustic covers' },
+  { id: 'classical', name: 'Classical', query: 'classical music' },
+  { id: 'hiphop', name: 'Hip Hop', query: 'hip hop hits' },
+  { id: 'brazil', name: 'Brasil Hits', query: 'musicas mais tocadas brasil' }
+];
+
+// Gerenciamento de Sites (3 Sites) com estatísticas por categoria
 let sites = {
-  "site1": { name: "Site 1 (Principal)", enabled: true, domain: "tminfinity.x10.mx", requests: 0 },
-  "site2": { name: "Site 2 (Reserva)", enabled: true, domain: "site2.com", requests: 0 },
-  "site3": { name: "Site 3 (Teste)", enabled: true, domain: "site3.com", requests: 0 }
+  "site1": { 
+    name: "Site 1 (Principal)", 
+    enabled: true, 
+    domain: "tminfinity.x10.mx", 
+    requests: 0,
+    categories: MUSIC_CATEGORIES.reduce((acc, cat) => ({ ...acc, [cat.id]: 0 }), {})
+  },
+  "site2": { 
+    name: "Site 2 (Reserva)", 
+    enabled: true, 
+    domain: "site2.com", 
+    requests: 0,
+    categories: MUSIC_CATEGORIES.reduce((acc, cat) => ({ ...acc, [cat.id]: 0 }), {})
+  },
+  "site3": { 
+    name: "Site 3 (Teste)", 
+    enabled: true, 
+    domain: "site3.com", 
+    requests: 0,
+    categories: MUSIC_CATEGORIES.reduce((acc, cat) => ({ ...acc, [cat.id]: 0 }), {})
+  }
 };
 
 // CONFIGURAÇÃO CRÍTICA PARA NGINX/PROXY
 app.set('trust proxy', 1);
 
-// Sistema de Métricas
+// Sistema de Métricas Gerais
 const stats = {
   totalRequests: 0,
   totalStreams: 0,
@@ -44,7 +75,7 @@ app.use(express.urlencoded({ extended: true }));
 const checkSiteStatus = (req, res, next) => {
   if (req.path.startsWith('/admin')) return next();
 
-  const siteId = req.headers['x-site-id'] || 'site1'; // Padrão é site1 se não enviado
+  const siteId = req.headers['x-site-id'] || 'site1';
   const site = sites[siteId];
 
   if (!site || !site.enabled) {
@@ -60,7 +91,7 @@ const checkSiteStatus = (req, res, next) => {
 app.use(checkSiteStatus);
 
 /**
- * PAINEL ADMINISTRATIVO (GERENCIADOR DE SITES)
+ * PAINEL ADMINISTRATIVO (GERENCIADOR DE SITES COM CATEGORIAS)
  */
 app.get('/admin', (req, res) => {
   res.send(`
@@ -94,25 +125,34 @@ app.post('/admin/dashboard', (req, res) => {
   const { code } = req.body;
   if (code !== ADMIN_CODE) return res.send('<h1>Código Inválido! <a href="/admin">Voltar</a></h1>');
 
-  const uptime = Math.floor((Date.now() - stats.startTime) / 1000);
-  
-  const sitesHtml = Object.entries(sites).map(([id, site]) => `
-    <div class="card">
-      <h3>${site.name}</h3>
-      <p>Domínio: <strong>${site.domain}</strong></p>
-      <p>Requisições: <strong>${site.requests}</strong></p>
-      <div style="font-weight: bold; color: ${site.enabled ? '#1db954' : '#ff4444'}; margin-bottom: 10px;">
-        STATUS: ${site.enabled ? 'LIBERADO' : 'BLOQUEADO'}
+  const sitesHtml = Object.entries(sites).map(([id, site]) => {
+    const categoriesHtml = Object.entries(site.categories)
+      .map(([catId, count]) => {
+        const catName = MUSIC_CATEGORIES.find(c => c.id === catId)?.name || catId;
+        return `<li>${catName}: <strong>${count}</strong></li>`;
+      }).join('');
+
+    return `
+      <div class="card">
+        <h3>${site.name}</h3>
+        <p>Domínio: <strong>${site.domain}</strong></p>
+        <p>Requisições Totais: <strong>${site.requests}</strong></p>
+        <div style="font-weight: bold; color: ${site.enabled ? '#1db954' : '#ff4444'}; margin-bottom: 10px;">
+          STATUS: ${site.enabled ? 'LIBERADO' : 'BLOQUEADO'}
+        </div>
+        <form action="/admin/toggle" method="POST" style="margin-bottom: 15px;">
+          <input type="hidden" name="code" value="${ADMIN_CODE}">
+          <input type="hidden" name="siteId" value="${id}">
+          <button type="submit" class="btn ${site.enabled ? 'btn-off' : 'btn-on'}">
+            ${site.enabled ? 'BLOQUEAR SITE' : 'LIBERAR SITE'}
+          </button>
+        </form>
+        <hr style="border: 0; border-top: 1px solid #333; margin: 10px 0;">
+        <h4>Requisições por Categoria:</h4>
+        <ul style="font-size: 13px; color: #aaa; padding-left: 15px;">${categoriesHtml}</ul>
       </div>
-      <form action="/admin/toggle" method="POST">
-        <input type="hidden" name="code" value="${ADMIN_CODE}">
-        <input type="hidden" name="siteId" value="${id}">
-        <button type="submit" class="btn ${site.enabled ? 'btn-off' : 'btn-on'}">
-          ${site.enabled ? 'BLOQUEAR SITE' : 'LIBERAR SITE'}
-        </button>
-      </form>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 
   res.send(`
     <!DOCTYPE html>
@@ -129,6 +169,7 @@ app.post('/admin/dashboard', (req, res) => {
         .btn-off { background: #ff4444; }
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px; }
+        h4 { margin: 10px 0 5px 0; color: #1db954; }
       </style>
     </head>
     <body>
@@ -170,13 +211,29 @@ app.get('/categories', (req, res) => res.json(MUSIC_CATEGORIES.map(cat => ({ id:
 
 app.get('/category/:id', async (req, res) => {
   const categoryId = req.params.id;
+  const siteId = req.headers['x-site-id'] || 'site1';
+  
+  // Contabiliza a categoria para o site específico
+  if (sites[siteId] && sites[siteId].categories[categoryId] !== undefined) {
+    sites[siteId].categories[categoryId]++;
+  }
+
   const category = MUSIC_CATEGORIES.find(c => c.id === categoryId);
   if (!category) return res.status(404).json({ error: 'Categoria não encontrada.' });
   try {
     const cachedResult = cache.get(`category_${categoryId}`);
     if (cachedResult) return res.json(cachedResult);
+    
+    // Aumentado para 100 músicas por categoria
     const r = await ytSearch(category.query);
-    const songs = r.videos.slice(0, 20).map(v => ({ title: v.title, artist: v.author.name, thumbnail: v.thumbnail, duration: v.timestamp, videoId: v.videoId }));
+    const songs = r.videos.slice(0, 100).map(v => ({ 
+      title: v.title, 
+      artist: v.author.name, 
+      thumbnail: v.thumbnail, 
+      duration: v.timestamp, 
+      videoId: v.videoId 
+    }));
+    
     cache.set(`category_${categoryId}`, songs);
     res.json(songs);
   } catch (e) { res.status(500).json({ error: 'Erro ao carregar categoria.' }); }
@@ -210,17 +267,5 @@ app.get('/stream/:id', (req, res) => {
   req.on('close', () => { stats.activeStreams = Math.max(0, stats.activeStreams - 1); ytdlp.kill(); ffmpeg.kill(); });
 });
 
-const MUSIC_CATEGORIES = [
-  { id: 'pop', name: 'Pop Music', query: 'pop music 2024' },
-  { id: 'rock', name: 'Rock', query: 'rock classics' },
-  { id: 'lofi', name: 'Lofi Hip Hop', query: 'lofi hip hop radio' },
-  { id: 'jazz', name: 'Jazz', query: 'jazz relaxante' },
-  { id: 'electronic', name: 'Electronic/EDM', query: 'electronic dance music' },
-  { id: 'acoustic', name: 'Acoustic', query: 'acoustic covers' },
-  { id: 'classical', name: 'Classical', query: 'classical music' },
-  { id: 'hiphop', name: 'Hip Hop', query: 'hip hop hits' },
-  { id: 'brazil', name: 'Brasil Hits', query: 'musicas mais tocadas brasil' }
-];
-
-app.get('/', (req, res) => res.send('API TM Infinity com Gerenciador de Sites rodando!'));
+app.get('/', (req, res) => res.send('API TM Infinity com 100 músicas por categoria rodando!'));
 app.listen(port, () => console.log(`Servidor na porta ${port}`));
