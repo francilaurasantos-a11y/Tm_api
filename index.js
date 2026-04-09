@@ -292,13 +292,13 @@ app.get('/category/:id', async (req, res) => {
     const cachedResult = cache.get(`category_${categoryId}`);
     if (cachedResult) return res.json(cachedResult);
     
-    // LÓGICA DE BUSCA VIA YT-DLP PARA GARANTIR 100 MÚSICAS REAIS
-    console.log(`Iniciando busca via yt-dlp para: ${category.name}`);
+    // LÓGICA DE BUSCA HÍBRIDA (YT-DLP + BACKUP YT-SEARCH)
+    console.log(`Iniciando busca híbrida para: ${category.name}`);
     
     const youtubeCookie = process.env.YOUTUBE_COOKIE || "";
     const query = category.query;
     
-    // Comando yt-dlp para buscar 100 vídeos e retornar em JSON
+    // TENTATIVA 1: YT-DLP (PARA 100 MÚSICAS)
     const ytdlpProcess = spawn("/usr/local/bin/yt-dlp", [
       "--add-header", `Cookie:${youtubeCookie}`,
       "--flat-playlist",
@@ -311,11 +311,18 @@ app.get('/category/:id', async (req, res) => {
     let outputData = "";
     ytdlpProcess.stdout.on("data", (data) => { outputData += data.toString(); });
 
-    ytdlpProcess.on("close", (code) => {
-      try {
-        // O yt-dlp com --print-json e ytsearch100 cospe vários objetos JSON, um por linha
+    const timeout = setTimeout(() => {
+      console.log(`Timeout no yt-dlp para ${category.name}. Usando backup yt-search.`);
+      ytdlpProcess.kill();
+    }, 15000); // 15 segundos de limite para o yt-dlp
+
+    ytdlpProcess.on("close", async (code) => {
+      clearTimeout(timeout);
+      let songs = [];
+      
+      if (outputData.trim()) {
         const lines = outputData.trim().split("\n");
-        const songs = lines.map(line => {
+        songs = lines.map(line => {
           try {
             const v = JSON.parse(line);
             return {
@@ -327,23 +334,33 @@ app.get('/category/:id', async (req, res) => {
             };
           } catch (e) { return null; }
         }).filter(s => s !== null);
-
-        console.log(`Busca via yt-dlp concluída para ${category.name}. Total: ${songs.length} músicas.`);
-        
-        if (songs.length > 0) {
-          cache.set(`category_${categoryId}`, songs);
-          res.json(songs);
-        } else {
-          res.status(404).json({ error: "Nenhuma música encontrada." });
-        }
-      } catch (err) {
-        console.error("Erro ao processar saída do yt-dlp:", err);
-        res.status(500).json({ error: "Erro ao processar busca." });
       }
-    });
 
-    ytdlpProcess.stderr.on("data", (data) => {
-      console.error(`yt-dlp stderr: ${data}`);
+      // TENTATIVA 2: BACKUP COM YT-SEARCH (SE O YT-DLP FALHAR OU VIER VAZIO)
+      if (songs.length === 0) {
+        console.log(`yt-dlp falhou para ${category.name}. Iniciando backup com yt-search...`);
+        try {
+          const r = await ytSearch({ query: query, pages: 3 });
+          songs = r.videos.slice(0, 100).map(v => ({
+            title: v.title,
+            artist: v.author.name,
+            thumbnail: v.thumbnail,
+            duration: v.timestamp,
+            videoId: v.videoId
+          }));
+        } catch (e) {
+          console.error("Erro no backup yt-search:", e);
+        }
+      }
+
+      console.log(`Busca finalizada para ${category.name}. Total: ${songs.length} músicas.`);
+      
+      if (songs.length > 0) {
+        cache.set(`category_${categoryId}`, songs);
+        res.json(songs);
+      } else {
+        res.status(404).json({ error: "Nenhuma música encontrada em nenhuma das fontes." });
+      }
     });
   } catch (e) { 
     console.error(e);
