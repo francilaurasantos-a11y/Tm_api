@@ -2,11 +2,10 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
 const NodeCache = require('node-cache');
 const ytSearch = require('yt-search');
 const { spawn } = require('child_process');
-const os = require('os');
+const path = require('path');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -14,7 +13,7 @@ const port = process.env.PORT || 3000;
 // CONFIGURAÇÕES DE CONTROLE
 const ADMIN_CODE = "@2207";
 
-// Lista de categorias
+// LISTA COMPLETA DE CATEGORIAS DE MÚSICA
 const MUSIC_CATEGORIES = [
   { id: 'pop', name: 'Pop Music', query: 'pop music 2024' },
   { id: 'rock', name: 'Rock', query: 'rock classics' },
@@ -24,31 +23,37 @@ const MUSIC_CATEGORIES = [
   { id: 'acoustic', name: 'Acoustic', query: 'acoustic covers' },
   { id: 'classical', name: 'Classical', query: 'classical music' },
   { id: 'hiphop', name: 'Hip Hop', query: 'hip hop hits' },
-  { id: 'brazil', name: 'Brasil Hits', query: 'musicas mais tocadas brasil' }
+  { id: 'brazil', name: 'Brasil Hits', query: 'musicas mais tocadas brasil' },
+  { id: 'funk', name: 'Funk Brasil', query: 'funk brasil 2024' },
+  { id: 'gospel', name: 'Gospel', query: 'gospel musicas' },
+  { id: 'sertanejo', name: 'Sertanejo', query: 'sertanejo 2024' },
+  { id: 'rap', name: 'Rap Nacional', query: 'rap nacional' },
+  { id: 'reggae', name: 'Reggae', query: 'reggae hits' },
+  { id: 'kpop', name: 'K-Pop', query: 'kpop hits' }
 ];
 
-// Gerenciamento de Sites (3 Sites) com estatísticas por categoria
+// Gerenciamento de Sites (3 Sites) com detecção automática de categorias
 let sites = {
   "site1": { 
     name: "Site 1 (Principal)", 
     enabled: true, 
     domain: "tminfinity.x10.mx", 
     requests: 0,
-    categories: MUSIC_CATEGORIES.reduce((acc, cat) => ({ ...acc, [cat.id]: 0 }), {})
+    detectedCategories: {} // Será preenchido automaticamente: { "pop": 10, "rock": 5 }
   },
   "site2": { 
     name: "Site 2 (Reserva)", 
     enabled: true, 
     domain: "site2.com", 
     requests: 0,
-    categories: MUSIC_CATEGORIES.reduce((acc, cat) => ({ ...acc, [cat.id]: 0 }), {})
+    detectedCategories: {}
   },
   "site3": { 
     name: "Site 3 (Teste)", 
     enabled: true, 
     domain: "site3.com", 
     requests: 0,
-    categories: MUSIC_CATEGORIES.reduce((acc, cat) => ({ ...acc, [cat.id]: 0 }), {})
+    detectedCategories: {}
   }
 };
 
@@ -71,7 +76,7 @@ app.use(cors({ origin: '*', methods: ['GET', 'POST', 'OPTIONS'], allowedHeaders:
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Middleware de Verificação de Status por Site
+// Middleware de Verificação de Status e Validação de Site
 const checkSiteStatus = (req, res, next) => {
   if (req.path.startsWith('/admin')) return next();
 
@@ -91,7 +96,7 @@ const checkSiteStatus = (req, res, next) => {
 app.use(checkSiteStatus);
 
 /**
- * PAINEL ADMINISTRATIVO (GERENCIADOR DE SITES COM CATEGORIAS)
+ * PAINEL ADMINISTRATIVO (GERENCIADOR DE SITES COM DETECÇÃO AUTOMÁTICA)
  */
 app.get('/admin', (req, res) => {
   res.send(`
@@ -126,10 +131,14 @@ app.post('/admin/dashboard', (req, res) => {
   if (code !== ADMIN_CODE) return res.send('<h1>Código Inválido! <a href="/admin">Voltar</a></h1>');
 
   const sitesHtml = Object.entries(sites).map(([id, site]) => {
-    const categoriesHtml = Object.entries(site.categories)
+    const categoriesHtml = Object.entries(site.detectedCategories)
+      .sort((a, b) => b[1] - a[1])
       .map(([catId, count]) => {
         const catName = MUSIC_CATEGORIES.find(c => c.id === catId)?.name || catId;
-        return `<li>${catName}: <strong>${count}</strong></li>`;
+        return `<div style="display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid #222;">
+                  <span>${catName}</span>
+                  <strong style="color: #1db954;">${count}</strong>
+                </div>`;
       }).join('');
 
     return `
@@ -148,8 +157,10 @@ app.post('/admin/dashboard', (req, res) => {
           </button>
         </form>
         <hr style="border: 0; border-top: 1px solid #333; margin: 10px 0;">
-        <h4>Requisições por Categoria:</h4>
-        <ul style="font-size: 13px; color: #aaa; padding-left: 15px;">${categoriesHtml}</ul>
+        <h4>Categorias Detectadas:</h4>
+        <div style="font-size: 13px; color: #aaa; max-height: 150px; overflow-y: auto; padding-right: 5px;">
+          ${categoriesHtml || '<p style="font-style: italic;">Nenhuma categoria detectada ainda.</p>'}
+        </div>
       </div>
     `;
   }).join('');
@@ -206,25 +217,33 @@ app.post('/admin/toggle', (req, res) => {
   }
 });
 
-// Endpoints de Música
-app.get('/categories', (req, res) => res.json(MUSIC_CATEGORIES.map(cat => ({ id: cat.id, name: cat.name }))));
+// Endpoints de Música com Detecção Automática
+app.get('/categories', (req, res) => {
+  // Retorna todas as categorias disponíveis para o site escolher
+  res.json(MUSIC_CATEGORIES.map(cat => ({ id: cat.id, name: cat.name })));
+});
 
 app.get('/category/:id', async (req, res) => {
   const categoryId = req.params.id;
   const siteId = req.headers['x-site-id'] || 'site1';
-  
-  // Contabiliza a categoria para o site específico
-  if (sites[siteId] && sites[siteId].categories[categoryId] !== undefined) {
-    sites[siteId].categories[categoryId]++;
+  const site = sites[siteId];
+
+  if (!site) return res.status(403).json({ error: 'Site não identificado.' });
+
+  // DETECÇÃO AUTOMÁTICA: Se o site pediu essa categoria, a API "aprende" que ele a possui
+  if (site.detectedCategories[categoryId] === undefined) {
+    site.detectedCategories[categoryId] = 1;
+  } else {
+    site.detectedCategories[categoryId]++;
   }
 
   const category = MUSIC_CATEGORIES.find(c => c.id === categoryId);
   if (!category) return res.status(404).json({ error: 'Categoria não encontrada.' });
+  
   try {
     const cachedResult = cache.get(`category_${categoryId}`);
     if (cachedResult) return res.json(cachedResult);
     
-    // Aumentado para 100 músicas por categoria
     const r = await ytSearch(category.query);
     const songs = r.videos.slice(0, 100).map(v => ({ 
       title: v.title, 
@@ -267,5 +286,5 @@ app.get('/stream/:id', (req, res) => {
   req.on('close', () => { stats.activeStreams = Math.max(0, stats.activeStreams - 1); ytdlp.kill(); ffmpeg.kill(); });
 });
 
-app.get('/', (req, res) => res.send('API TM Infinity com 100 músicas por categoria rodando!'));
+app.get('/', (req, res) => res.send('API TM Infinity com Detecção Automática rodando!'));
 app.listen(port, () => console.log(`Servidor na porta ${port}`));
