@@ -16,64 +16,64 @@ const ADMIN_CODE = "@2207";
 // LISTA COMPLETA E EXPANDIDA DE CATEGORIAS DE MÚSICA BRASILEIRA 🇧🇷
 const MUSIC_CATEGORIES = [
   // SERTANEJO
-  { id: 'sertanejo-raiz', name: 'Sertanejo Raiz', query: 'sertanejo raiz modão' },
-  { id: 'sertanejo-universitario', name: 'Sertanejo Universitário', query: 'sertanejo universitário 2024' },
-  { id: 'sertanejo-romantico', name: 'Sertanejo Romântico', query: 'sertanejo romântico' },
-  { id: 'modao', name: 'Modão', query: 'modão sertanejo' },
-  { id: 'sertanejo-pop', name: 'Sertanejo Pop', query: 'sertanejo pop' },
+  { id: 'sertanejo-raiz', name: 'Sertanejo Raiz', query: 'sertanejo raiz modão completo' },
+  { id: 'sertanejo-universitario', name: 'Sertanejo Universitário', query: 'sertanejo universitário 2024 2025' },
+  { id: 'sertanejo-romantico', name: 'Sertanejo Romântico', query: 'sertanejo romântico sucessos' },
+  { id: 'modao', name: 'Modão', query: 'modão sertanejo antigo' },
+  { id: 'sertanejo-pop', name: 'Sertanejo Pop', query: 'sertanejo pop atual' },
   
   // SAMBA
-  { id: 'samba-tradicional', name: 'Samba Tradicional', query: 'samba tradicional' },
-  { id: 'samba-raiz', name: 'Samba de Raiz', query: 'samba de raiz' },
+  { id: 'samba-tradicional', name: 'Samba Tradicional', query: 'samba tradicional clássicos' },
+  { id: 'samba-raiz', name: 'Samba de Raiz', query: 'samba de raiz sucessos' },
   { id: 'partido-alto', name: 'Partido Alto', query: 'partido alto samba' },
-  { id: 'samba-enredo', name: 'Samba-Enredo', query: 'samba enredo 2024' },
-  { id: 'samba-cancao', name: 'Samba-Canção', query: 'samba canção' },
+  { id: 'samba-enredo', name: 'Samba-Enredo', query: 'samba enredo 2024 2025' },
+  { id: 'samba-cancao', name: 'Samba-Canção', query: 'samba canção clássicos' },
   
   // PAGODE
-  { id: 'pagode-90', name: 'Pagode 90', query: 'pagode anos 90' },
-  { id: 'pagode-romantico', name: 'Pagode Romântico', query: 'pagode romântico' },
-  { id: 'pagode-moderno', name: 'Pagode Moderno', query: 'pagode atual 2024' },
+  { id: 'pagode-90', name: 'Pagode 90', query: 'pagode anos 90 sucessos' },
+  { id: 'pagode-romantico', name: 'Pagode Romântico', query: 'pagode romântico atual' },
+  { id: 'pagode-moderno', name: 'Pagode Moderno', query: 'pagode atual 2024 2025' },
   
   // FUNK
-  { id: 'funk-carioca', name: 'Funk Carioca', query: 'funk carioca' },
-  { id: 'funk-ostentacao', name: 'Funk Ostentação', query: 'funk ostentação' },
-  { id: 'funk-consciente', name: 'Funk Consciente', query: 'funk consciente' },
-  { id: 'funk-proibidao', name: 'Funk Proibidão', query: 'funk proibidão' },
-  { id: 'funk-rave', name: 'Funk Rave', query: 'funk rave' },
-  { id: 'funk-melody', name: 'Funk Melody', query: 'funk melody' },
+  { id: 'funk-carioca', name: 'Funk Carioca', query: 'funk carioca 2024' },
+  { id: 'funk-ostentacao', name: 'Funk Ostentação', query: 'funk ostentação sucessos' },
+  { id: 'funk-consciente', name: 'Funk Consciente', query: 'funk consciente 2024' },
+  { id: 'funk-proibidao', name: 'Funk Proibidão', query: 'funk proibidão 2024' },
+  { id: 'funk-rave', name: 'Funk Rave', query: 'funk rave 2024' },
+  { id: 'funk-melody', name: 'Funk Melody', query: 'funk melody clássicos' },
   
   // MPB
-  { id: 'mpb-classica', name: 'MPB Clássica', query: 'mpb clássica' },
-  { id: 'mpb-moderna', name: 'MPB Moderna', query: 'mpb moderna' },
-  { id: 'mpb-acustica', name: 'MPB Acústica', query: 'mpb acústica' },
+  { id: 'mpb-classica', name: 'MPB Clássica', query: 'mpb clássica sucessos' },
+  { id: 'mpb-moderna', name: 'MPB Moderna', query: 'mpb moderna atual' },
+  { id: 'mpb-acustica', name: 'MPB Acústica', query: 'mpb acústica sucessos' },
   
   // FORRÓ
-  { id: 'forro-pe-de-serra', name: 'Forró Pé de Serra', query: 'forró pé de serra' },
-  { id: 'forro-eletronico', name: 'Forró Eletrônico', query: 'forró eletrônico' },
-  { id: 'forro-universitario', name: 'Forró Universitário', query: 'forró universitário' },
+  { id: 'forro-pe-de-serra', name: 'Forró Pé de Serra', query: 'forró pé de serra clássicos' },
+  { id: 'forro-eletronico', name: 'Forró Eletrônico', query: 'forró eletrônico 2024' },
+  { id: 'forro-universitario', name: 'Forró Universitário', query: 'forró universitário sucessos' },
   
   // AXÉ
-  { id: 'axe-classico', name: 'Axé Clássico', query: 'axé clássico' },
-  { id: 'axe-pop', name: 'Axé Pop', query: 'axé pop' },
+  { id: 'axe-classico', name: 'Axé Clássico', query: 'axé clássico anos 90' },
+  { id: 'axe-pop', name: 'Axé Pop', query: 'axé pop atual' },
   
   // BREGA / TECNOBREGA
-  { id: 'brega-tradicional', name: 'Brega Tradicional', query: 'brega tradicional' },
-  { id: 'tecnobrega', name: 'Tecnobrega', query: 'tecnobrega' },
-  { id: 'brega-funk', name: 'Brega Funk', query: 'brega funk 2024' },
-  { id: 'brega-romantico', name: 'Brega Romântico', query: 'brega romântico' },
+  { id: 'brega-tradicional', name: 'Brega Tradicional', query: 'brega tradicional sucessos' },
+  { id: 'tecnobrega', name: 'Tecnobrega', query: 'tecnobrega pará' },
+  { id: 'brega-funk', name: 'Brega Funk', query: 'brega funk 2024 2025' },
+  { id: 'brega-romantico', name: 'Brega Romântico', query: 'brega romântico sucessos' },
   
   // ARROCHA
-  { id: 'arrocha-romantico', name: 'Arrocha Romântico', query: 'arrocha romântico' },
-  { id: 'arrocha-moderno', name: 'Arrocha Moderno', query: 'arrocha moderno' },
+  { id: 'arrocha-romantico', name: 'Arrocha Romântico', query: 'arrocha romântico atual' },
+  { id: 'arrocha-moderno', name: 'Arrocha Moderno', query: 'arrocha moderno 2024' },
   
   // PISEIRO
-  { id: 'piseiro-eletronico', name: 'Piseiro Eletrônico', query: 'piseiro eletrônico' },
-  { id: 'piseiro-tradicional', name: 'Piseiro Tradicional', query: 'piseiro tradicional' },
+  { id: 'piseiro-eletronico', name: 'Piseiro Eletrônico', query: 'piseiro eletrônico 2024' },
+  { id: 'piseiro-tradicional', name: 'Piseiro Tradicional', query: 'piseiro tradicional sucessos' },
   
   // RAP / HIP HOP BR
-  { id: 'rap-nacional', name: 'Rap Nacional', query: 'rap nacional' },
-  { id: 'trap-br', name: 'Trap BR', query: 'trap brasil 2024' },
-  { id: 'drill-br', name: 'Drill BR', query: 'drill brasil' },
+  { id: 'rap-nacional', name: 'Rap Nacional', query: 'rap nacional clássicos' },
+  { id: 'trap-br', name: 'Trap BR', query: 'trap brasil 2024 2025' },
+  { id: 'drill-br', name: 'Drill BR', query: 'drill brasil 2024' },
   { id: 'boom-bap-br', name: 'Boom Bap BR', query: 'boom bap brasil' },
   
   // ROCK BRASILEIRO
@@ -82,32 +82,32 @@ const MUSIC_CATEGORIES = [
   { id: 'indie-br', name: 'Indie BR', query: 'indie brasil' },
   
   // JAZZ / BLUES BRASILEIRO
-  { id: 'jazz-brasileiro', name: 'Jazz Brasileiro', query: 'jazz brasileiro' },
-  { id: 'bossa-nova', name: 'Bossa Nova', query: 'bossa nova' },
-  { id: 'samba-jazz', name: 'Samba-Jazz', query: 'samba jazz' },
+  { id: 'jazz-brasileiro', name: 'Jazz Brasileiro', query: 'jazz brasileiro instrumental' },
+  { id: 'bossa-nova', name: 'Bossa Nova', query: 'bossa nova clássicos' },
+  { id: 'samba-jazz', name: 'Samba-Jazz', query: 'samba jazz instrumental' },
   
   // REGIONAL / FOLCLÓRICA
-  { id: 'carimbo', name: 'Carimbó', query: 'carimbó' },
-  { id: 'baiao', name: 'Baião', query: 'baião' },
-  { id: 'xote', name: 'Xote', query: 'xote' },
-  { id: 'xaxado', name: 'Xaxado', query: 'xaxado' },
-  { id: 'maracatu', name: 'Maracatu', query: 'maracatu' },
-  { id: 'frevo', name: 'Frevo', query: 'frevo' },
-  { id: 'choro', name: 'Choro', query: 'chorinho brasileiro' },
-  { id: 'moda-de-viola', name: 'Moda de Viola', query: 'moda de viola' },
-  { id: 'vanerao', name: 'Vanerão', query: 'vanerão' },
-  { id: 'musica-gaucha', name: 'Música Gaúcha', query: 'música gaúcha' },
+  { id: 'carimbo', name: 'Carimbó', query: 'carimbó pará' },
+  { id: 'baiao', name: 'Baião', query: 'baião clássicos' },
+  { id: 'xote', name: 'Xote', query: 'xote sucessos' },
+  { id: 'xaxado', name: 'Xaxado', query: 'xaxado música' },
+  { id: 'maracatu', name: 'Maracatu', query: 'maracatu música' },
+  { id: 'frevo', name: 'Frevo', query: 'frevo pernambuco' },
+  { id: 'choro', name: 'Choro', query: 'chorinho brasileiro clássicos' },
+  { id: 'moda-de-viola', name: 'Moda de Viola', query: 'moda de viola raiz' },
+  { id: 'vanerao', name: 'Vanerão', query: 'vanerão gaúcho' },
+  { id: 'musica-gaucha', name: 'Música Gaúcha', query: 'música gaúcha tradicional' },
   
   // GOSPEL
-  { id: 'gospel-tradicional', name: 'Gospel Tradicional', query: 'gospel tradicional' },
-  { id: 'gospel-pentecostal', name: 'Gospel Pentecostal', query: 'gospel pentecostal' },
-  { id: 'worship', name: 'Worship', query: 'worship gospel' },
+  { id: 'gospel-tradicional', name: 'Gospel Tradicional', query: 'gospel tradicional hinos' },
+  { id: 'gospel-pentecostal', name: 'Gospel Pentecostal', query: 'gospel pentecostal 2024' },
+  { id: 'worship', name: 'Worship', query: 'worship gospel brasil 2024' },
   
   // OUTROS
-  { id: 'lofi-br', name: 'Lo-fi BR', query: 'lofi brasil' },
-  { id: 'instrumental', name: 'Instrumental', query: 'instrumental brasileiro' },
-  { id: 'infantil', name: 'Infantil', query: 'música infantil brasileira' },
-  { id: 'trilhas-sonoras', name: 'Trilhas Sonoras', query: 'trilhas sonoras novelas' }
+  { id: 'lofi-br', name: 'Lo-fi BR', query: 'lofi brasil relax' },
+  { id: 'instrumental', name: 'Instrumental', query: 'instrumental brasileiro relax' },
+  { id: 'infantil', name: 'Infantil', query: 'música infantil brasileira sucessos' },
+  { id: 'trilhas-sonoras', name: 'Trilhas Sonoras', query: 'trilhas sonoras novelas globo' }
 ];
 
 // Gerenciamento de Sites (3 Sites) com detecção automática de categorias
@@ -284,21 +284,36 @@ app.get('/category/:id', async (req, res) => {
   const siteId = req.headers['x-site-id'] || 'site1';
   const site = sites[siteId];
   if (!site) return res.status(403).json({ error: 'Site não identificado.' });
+  
+  // Detecção automática de categoria por site
   if (site.detectedCategories[categoryId] === undefined) {
     site.detectedCategories[categoryId] = 1;
   } else {
     site.detectedCategories[categoryId]++;
   }
+
   const category = MUSIC_CATEGORIES.find(c => c.id === categoryId);
   if (!category) return res.status(404).json({ error: 'Categoria não encontrada.' });
+  
   try {
     const cachedResult = cache.get(`category_${categoryId}`);
     if (cachedResult) return res.json(cachedResult);
+    
+    // Busca automática de 100 músicas por categoria
     const r = await ytSearch(category.query);
-    const songs = r.videos.slice(0, 100).map(v => ({ title: v.title, artist: v.author.name, thumbnail: v.thumbnail, duration: v.timestamp, videoId: v.videoId }));
+    const songs = r.videos.slice(0, 100).map(v => ({ 
+      title: v.title, 
+      artist: v.author.name, 
+      thumbnail: v.thumbnail, 
+      duration: v.timestamp, 
+      videoId: v.videoId 
+    }));
+    
     cache.set(`category_${categoryId}`, songs);
     res.json(songs);
-  } catch (e) { res.status(500).json({ error: 'Erro ao carregar categoria.' }); }
+  } catch (e) { 
+    res.status(500).json({ error: 'Erro ao carregar categoria.' }); 
+  }
 });
 
 app.get('/search', async (req, res) => {
@@ -322,12 +337,33 @@ app.get('/stream/:id', (req, res) => {
   res.setHeader('Content-Type', 'audio/mpeg');
   res.setHeader('Accept-Ranges', 'bytes');
   res.setHeader('Access-Control-Allow-Origin', '*');
-  const ytdlp = spawn('/usr/local/bin/yt-dlp', ['--add-header', `Cookie:${youtubeCookie}`, '-f', 'ba/b', '--limit-rate', '1M', '-o', '-', `https://www.youtube.com/watch?v=${videoId}`]);
-  const ffmpeg = spawn('ffmpeg', ['-i', 'pipe:0', '-acodec', 'libmp3lame', '-ab', '128k', '-f', 'mp3', 'pipe:1']);
+  
+  // Streaming usando yt-dlp com autenticação por cookie
+  const ytdlp = spawn('/usr/local/bin/yt-dlp', [
+    '--add-header', `Cookie:${youtubeCookie}`, 
+    '-f', 'ba/b', 
+    '--limit-rate', '1M', 
+    '-o', '-', 
+    `https://www.youtube.com/watch?v=${videoId}`
+  ]);
+  
+  const ffmpeg = spawn('ffmpeg', [
+    '-i', 'pipe:0', 
+    '-acodec', 'libmp3lame', 
+    '-ab', '128k', 
+    '-f', 'mp3', 
+    'pipe:1'
+  ]);
+  
   ytdlp.stdout.pipe(ffmpeg.stdin);
   ffmpeg.stdout.pipe(res);
-  req.on('close', () => { stats.activeStreams = Math.max(0, stats.activeStreams - 1); ytdlp.kill(); ffmpeg.kill(); });
+  
+  req.on('close', () => { 
+    stats.activeStreams = Math.max(0, stats.activeStreams - 1); 
+    ytdlp.kill(); 
+    ffmpeg.kill(); 
+  });
 });
 
-app.get('/', (req, res) => res.send('API TM Infinity com Todas as Categorias Brasileiras rodando!'));
+app.get('/', (req, res) => res.send('API TM Infinity - 100 Músicas por Categoria Brasileira rodando!'));
 app.listen(port, () => console.log(`Servidor na porta ${port}`));
