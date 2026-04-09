@@ -153,7 +153,7 @@ const checkSiteStatus = (req, res, next) => {
 app.use(checkSiteStatus);
 
 /**
- * PAINEL ADMINISTRATIVO (GERENCIADOR DE SITES COM DETECÇÃO AUTOMÁTICA)
+ * PAINEL ADMINISTRATIVO
  */
 app.get('/admin', (req, res) => {
   res.send(`
@@ -242,17 +242,11 @@ app.post('/admin/dashboard', (req, res) => {
     </head>
     <body>
       <h1>⚙️ Gerenciador de Sites TM Infinity</h1>
-      
       <div class="stats-grid">
-        <div class="card"><div>Total Geral</div><div style="font-size: 20px; color: #1db954;">${stats.totalRequests}</div></div>
-        <div class="card"><div>Bloqueios</div><div style="font-size: 20px; color: #ff4444;">${stats.blockedRequests}</div></div>
+        <div class="card"><div>Requisições Totais</div><div style="font-size: 20px; color: #1db954;">${stats.totalRequests}</div></div>
         <div class="card"><div>Streams Ativos</div><div style="font-size: 20px; color: #1db954;">${stats.activeStreams}</div></div>
       </div>
-
-      <div class="grid">
-        ${sitesHtml}
-      </div>
-      
+      <div class="grid">${sitesHtml}</div>
       <p><a href="/admin" style="color: #666;">Sair do Painel</a></p>
     </body>
     </html>
@@ -274,7 +268,7 @@ app.post('/admin/toggle', (req, res) => {
   }
 });
 
-// Endpoints de Música com Detecção Automática
+// Endpoints de Música
 app.get('/categories', (req, res) => {
   res.json(MUSIC_CATEGORIES.map(cat => ({ id: cat.id, name: cat.name })));
 });
@@ -285,7 +279,6 @@ app.get('/category/:id', async (req, res) => {
   const site = sites[siteId];
   if (!site) return res.status(403).json({ error: 'Site não identificado.' });
   
-  // Detecção automática de categoria por site
   if (site.detectedCategories[categoryId] === undefined) {
     site.detectedCategories[categoryId] = 1;
   } else {
@@ -299,8 +292,10 @@ app.get('/category/:id', async (req, res) => {
     const cachedResult = cache.get(`category_${categoryId}`);
     if (cachedResult) return res.json(cachedResult);
     
-    // Busca automática de 100 músicas por categoria
-    const r = await ytSearch(category.query);
+    // BUSCA PERSISTENTE PARA GARANTIR 100 MÚSICAS
+    console.log(`Buscando 100 músicas para: ${category.name}`);
+    const r = await ytSearch({ query: category.query, pages: 2 }); // Busca em 2 páginas para garantir volume
+    
     const songs = r.videos.slice(0, 100).map(v => ({ 
       title: v.title, 
       artist: v.author.name, 
@@ -312,6 +307,7 @@ app.get('/category/:id', async (req, res) => {
     cache.set(`category_${categoryId}`, songs);
     res.json(songs);
   } catch (e) { 
+    console.error(e);
     res.status(500).json({ error: 'Erro ao carregar categoria.' }); 
   }
 });
@@ -323,7 +319,7 @@ app.get('/search', async (req, res) => {
     const cachedResult = cache.get(`search_${query}`);
     if (cachedResult) return res.json(cachedResult);
     const r = await ytSearch(query);
-    const songs = r.videos.slice(0, 15).map(v => ({ title: v.title, artist: v.author.name, thumbnail: v.thumbnail, duration: v.timestamp, videoId: v.videoId }));
+    const songs = r.videos.slice(0, 20).map(v => ({ title: v.title, artist: v.author.name, thumbnail: v.thumbnail, duration: v.timestamp, videoId: v.videoId }));
     cache.set(`search_${query}`, songs);
     res.json(songs);
   } catch (e) { res.status(500).json({ error: 'Erro na busca.' }); }
@@ -338,7 +334,6 @@ app.get('/stream/:id', (req, res) => {
   res.setHeader('Accept-Ranges', 'bytes');
   res.setHeader('Access-Control-Allow-Origin', '*');
   
-  // Streaming usando yt-dlp com autenticação por cookie
   const ytdlp = spawn('/usr/local/bin/yt-dlp', [
     '--add-header', `Cookie:${youtubeCookie}`, 
     '-f', 'ba/b', 
