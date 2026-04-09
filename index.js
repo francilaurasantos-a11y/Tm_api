@@ -292,76 +292,69 @@ app.get('/category/:id', async (req, res) => {
     const cachedResult = cache.get(`category_${categoryId}`);
     if (cachedResult) return res.json(cachedResult);
     
-    // LÓGICA DE BUSCA HÍBRIDA (YT-DLP + BACKUP YT-SEARCH)
-    console.log(`Iniciando busca híbrida para: ${category.name}`);
+    // LÓGICA DE BUSCA ULTRA-PERSISTENTE (MÚLTIPLAS QUERIES)
+    console.log(`Iniciando busca ultra-persistente para: ${category.name}`);
     
-    const youtubeCookie = process.env.YOUTUBE_COOKIE || "";
-    const query = category.query;
-    
-    // TENTATIVA 1: YT-DLP (PARA 100 MÚSICAS)
-    const ytdlpProcess = spawn("/usr/local/bin/yt-dlp", [
-      "--add-header", `Cookie:${youtubeCookie}`,
-      "--flat-playlist",
-      "--dump-single-json",
-      "--print-json",
-      "--limit-chapters", "0",
-      `ytsearch100:${query}`
-    ]);
+    const baseQuery = category.query;
+    const queryVariations = [
+      baseQuery,
+      `${baseQuery} 2024`,
+      `${baseQuery} 2025`,
+      `${baseQuery} hits`,
+      `${baseQuery} melhores`,
+      `${baseQuery} top`,
+      `${baseQuery} sucessos`,
+      `${baseQuery} oficial`,
+      `${baseQuery} playlist`,
+      `${baseQuery} ao vivo`
+    ];
 
-    let outputData = "";
-    ytdlpProcess.stdout.on("data", (data) => { outputData += data.toString(); });
+    let allSongs = [];
+    let uniqueVideoIds = new Set();
+    const targetCount = 100;
 
-    const timeout = setTimeout(() => {
-      console.log(`Timeout no yt-dlp para ${category.name}. Usando backup yt-search.`);
-      ytdlpProcess.kill();
-    }, 15000); // 15 segundos de limite para o yt-dlp
-
-    ytdlpProcess.on("close", async (code) => {
-      clearTimeout(timeout);
-      let songs = [];
-      
-      if (outputData.trim()) {
-        const lines = outputData.trim().split("\n");
-        songs = lines.map(line => {
-          try {
-            const v = JSON.parse(line);
-            return {
-              title: v.title,
-              artist: v.uploader || "YouTube Music",
-              thumbnail: v.thumbnail || (v.thumbnails && v.thumbnails.length > 0 ? v.thumbnails[v.thumbnails.length - 1].url : ""),
-              duration: v.duration_string || "0:00",
-              videoId: v.id
-            };
-          } catch (e) { return null; }
-        }).filter(s => s !== null);
-      }
-
-      // TENTATIVA 2: BACKUP COM YT-SEARCH (SE O YT-DLP FALHAR OU VIER VAZIO)
-      if (songs.length === 0) {
-        console.log(`yt-dlp falhou para ${category.name}. Iniciando backup com yt-search...`);
+    const performSearch = async () => {
+      for (const currentQuery of queryVariations) {
+        if (allSongs.length >= targetCount) break;
+        
+        console.log(`Buscando com a query: '${currentQuery}'`);
         try {
-          const r = await ytSearch({ query: query, pages: 3 });
-          songs = r.videos.slice(0, 100).map(v => ({
-            title: v.title,
-            artist: v.author.name,
-            thumbnail: v.thumbnail,
-            duration: v.timestamp,
-            videoId: v.videoId
-          }));
-        } catch (e) {
-          console.error("Erro no backup yt-search:", e);
+          // Busca rápida (1 página) para evitar bloqueios e ser mais ágil
+          const r = await ytSearch({ query: currentQuery, pages: 1 });
+          
+          if (r && r.videos && r.videos.length > 0) {
+            for (const v of r.videos) {
+              if (allSongs.length >= targetCount) break;
+              
+              if (!uniqueVideoIds.has(v.videoId)) {
+                uniqueVideoIds.add(v.videoId);
+                allSongs.push({
+                  title: v.title,
+                  artist: v.author.name,
+                  thumbnail: v.thumbnail,
+                  duration: v.timestamp,
+                  videoId: v.videoId
+                });
+              }
+            }
+            console.log(`Total acumulado para ${category.name}: ${allSongs.length} músicas.`);
+          }
+        } catch (error) {
+          console.error(`Erro ao buscar query '${currentQuery}':`, error.message);
         }
       }
 
-      console.log(`Busca finalizada para ${category.name}. Total: ${songs.length} músicas.`);
+      console.log(`Busca finalizada para ${category.name}. Total: ${allSongs.length} músicas.`);
       
-      if (songs.length > 0) {
-        cache.set(`category_${categoryId}`, songs);
-        res.json(songs);
+      if (allSongs.length > 0) {
+        cache.set(`category_${categoryId}`, allSongs);
+        res.json(allSongs);
       } else {
-        res.status(404).json({ error: "Nenhuma música encontrada em nenhuma das fontes." });
+        res.status(404).json({ error: "Nenhuma música encontrada." });
       }
-    });
+    };
+
+    performSearch();
   } catch (e) { 
     console.error(e);
     res.status(500).json({ error: 'Erro ao carregar categoria.' }); 
