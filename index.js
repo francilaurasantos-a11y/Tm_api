@@ -292,61 +292,59 @@ app.get('/category/:id', async (req, res) => {
     const cachedResult = cache.get(`category_${categoryId}`);
     if (cachedResult) return res.json(cachedResult);
     
-    // LÓGICA DE BUSCA ULTRA-AGRESSIVA PARA GARANTIR 100 MÚSICAS
-    console.log(`Iniciando busca ultra-agressiva para: ${category.name}`);
-    let allSongs = [];
-    let uniqueVideoIds = new Set();
-    const targetCount = 100;
+    // LÓGICA DE BUSCA VIA YT-DLP PARA GARANTIR 100 MÚSICAS REAIS
+    console.log(`Iniciando busca via yt-dlp para: ${category.name}`);
     
-    const baseQuery = category.query;
-    // Lista de variações para forçar o YouTube a mostrar resultados diferentes
-    const queryVariations = [
-      baseQuery,
-      `${baseQuery} 2024`,
-      `${baseQuery} 2025`,
-      `${baseQuery} hits`,
-      `${baseQuery} melhores`,
-      `${baseQuery} top`,
-      `${baseQuery} sucessos`,
-      `${baseQuery} oficial`,
-      `${baseQuery} playlist`,
-      `${baseQuery} ao vivo`
-    ];
+    const youtubeCookie = process.env.YOUTUBE_COOKIE || "";
+    const query = category.query;
+    
+    // Comando yt-dlp para buscar 100 vídeos e retornar em JSON
+    const ytdlpProcess = spawn("/usr/local/bin/yt-dlp", [
+      "--add-header", `Cookie:${youtubeCookie}`,
+      "--flat-playlist",
+      "--dump-single-json",
+      "--print-json",
+      "--limit-chapters", "0",
+      `ytsearch100:${query}`
+    ]);
 
-    for (const currentQuery of queryVariations) {
-      if (allSongs.length >= targetCount) break;
-      
-      console.log(`Buscando com a query: '${currentQuery}'`);
+    let outputData = "";
+    ytdlpProcess.stdout.on("data", (data) => { outputData += data.toString(); });
+
+    ytdlpProcess.on("close", (code) => {
       try {
-        // Busca profunda em cada variação (até 3 páginas)
-        const r = await ytSearch({ query: currentQuery, pages: 3 });
-        
-        if (r && r.videos && r.videos.length > 0) {
-          for (const v of r.videos) {
-            if (allSongs.length >= targetCount) break;
-            
-            if (!uniqueVideoIds.has(v.videoId)) {
-              uniqueVideoIds.add(v.videoId);
-              allSongs.push({
-                title: v.title,
-                artist: v.author.name,
-                thumbnail: v.thumbnail,
-                duration: v.timestamp,
-                videoId: v.videoId
-              });
-            }
-          }
-          console.log(`Total acumulado para ${category.name}: ${allSongs.length} músicas.`);
-        }
-      } catch (error) {
-        console.error(`Erro ao buscar query '${currentQuery}':`, error.message);
-      }
-    }
+        // O yt-dlp com --print-json e ytsearch100 cospe vários objetos JSON, um por linha
+        const lines = outputData.trim().split("\n");
+        const songs = lines.map(line => {
+          try {
+            const v = JSON.parse(line);
+            return {
+              title: v.title,
+              artist: v.uploader || "YouTube Music",
+              thumbnail: v.thumbnail || (v.thumbnails && v.thumbnails.length > 0 ? v.thumbnails[v.thumbnails.length - 1].url : ""),
+              duration: v.duration_string || "0:00",
+              videoId: v.id
+            };
+          } catch (e) { return null; }
+        }).filter(s => s !== null);
 
-    console.log(`Busca finalizada para ${category.name}. Total: ${allSongs.length} músicas.`);
-    
-    cache.set(`category_${categoryId}`, allSongs);
-    res.json(allSongs);
+        console.log(`Busca via yt-dlp concluída para ${category.name}. Total: ${songs.length} músicas.`);
+        
+        if (songs.length > 0) {
+          cache.set(`category_${categoryId}`, songs);
+          res.json(songs);
+        } else {
+          res.status(404).json({ error: "Nenhuma música encontrada." });
+        }
+      } catch (err) {
+        console.error("Erro ao processar saída do yt-dlp:", err);
+        res.status(500).json({ error: "Erro ao processar busca." });
+      }
+    });
+
+    ytdlpProcess.stderr.on("data", (data) => {
+      console.error(`yt-dlp stderr: ${data}`);
+    });
   } catch (e) { 
     console.error(e);
     res.status(500).json({ error: 'Erro ao carregar categoria.' }); 
