@@ -38,7 +38,62 @@ const categories = {
   'trap-brasil': { name: 'Trap Brasil', query: 'trap brasil sucessos' }
 };
 
+// ==========================================
+// ROTA DO PAINEL ADM (RESTAURADA)
+// ==========================================
+app.get('/admin/panel', (req, res) => {
+  const code = req.query.code;
+  if (code !== ADMIN_CODE) {
+    return res.status(403).send('Acesso negado.');
+  }
+
+  let html = `
+    <html>
+      <head>
+        <title>Painel ADM - TM Infinity</title>
+        <style>
+          body { font-family: sans-serif; padding: 20px; background: #121212; color: white; }
+          .card { background: #1e1e1e; padding: 15px; margin-bottom: 10px; border-radius: 8px; }
+          button { padding: 8px 15px; cursor: pointer; background: #0099ff; color: white; border: none; border-radius: 4px; }
+          .status { color: #00ff00; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <h1>🚀 Painel Administrativo TM Infinity</h1>
+        <div class="card">
+          <h3>📊 Status do Servidor</h3>
+          <p>Uptime: ${Math.floor(process.uptime() / 3600)}h | Requisições: ${requestCount}</p>
+          <p>Memória: ${(((os.totalmem() - os.freemem()) / os.totalmem()) * 100).toFixed(2)}% em uso</p>
+        </div>
+        <div class="card">
+          <h3>🗄️ Gerenciar Cache</h3>
+          <button onclick="fetch('/admin/clear-cache?code=${ADMIN_CODE}').then(() => alert('Cache limpo!'))">Limpar Todo o Cache</button>
+        </div>
+        <div class="card">
+          <h3>📂 Categorias no Cache</h3>
+          <ul>
+            ${Object.keys(categories).map(id => {
+              const data = cache.get(`category_${id}`);
+              return `<li>${categories[id].name}: <span class="status">${data ? data.length : 0} músicas</span></li>`;
+            }).join('')}
+          </ul>
+        </div>
+      </body>
+    </html>
+  `;
+  res.send(html);
+});
+
+app.get('/admin/clear-cache', (req, res) => {
+  const code = req.query.code;
+  if (code !== ADMIN_CODE) return res.status(403).json({ error: 'Acesso negado.' });
+  cache.flushAll();
+  res.json({ success: true, message: 'Cache limpo com sucesso.' });
+});
+
+// ==========================================
 // ENDPOINT DE STATUS PARA O BOT
+// ==========================================
 app.get('/status', (req, res) => {
   const uptime = process.uptime();
   const freeMem = os.freemem();
@@ -67,7 +122,9 @@ app.get('/status', (req, res) => {
   });
 });
 
-// ENDPOINT DE CATEGORIAS
+// ==========================================
+// ENDPOINT DE CATEGORIAS (100 MÚSICAS)
+// ==========================================
 app.get('/category/:id', async (req, res) => {
   const categoryId = req.params.id;
   const category = categories[categoryId];
@@ -80,13 +137,13 @@ app.get('/category/:id', async (req, res) => {
     const cachedResult = cache.get(`category_${categoryId}`);
     if (cachedResult) return res.json(cachedResult);
 
-    // LÓGICA DE BUSCA ULTRA-PERSISTENTE (MÚLTIPLAS QUERIES)
     console.log(`Iniciando busca para: ${category.name}`);
     
     const baseQuery = category.query;
     const queryVariations = [
       baseQuery, `${baseQuery} 2024`, `${baseQuery} 2025`, 
-      `${baseQuery} hits`, `${baseQuery} melhores`, `${baseQuery} top`
+      `${baseQuery} hits`, `${baseQuery} melhores`, `${baseQuery} top`,
+      `${baseQuery} sucessos`, `${baseQuery} oficial`, `${baseQuery} playlist`, `${baseQuery} ao vivo`
     ];
 
     let allSongs = [];
@@ -150,7 +207,9 @@ app.get('/category/:id', async (req, res) => {
   }
 });
 
-// ENDPOINT DE BUSCA GERAL
+// ==========================================
+// OUTRAS ROTAS (BUSCA E STREAMING)
+// ==========================================
 app.get('/search', async (req, res) => {
   const query = req.query.q;
   if (!query) return res.status(400).json({ error: 'Query necessária.' });
@@ -167,7 +226,6 @@ app.get('/search', async (req, res) => {
   }
 });
 
-// ENDPOINT DE STREAMING (EXEMPLO SIMPLIFICADO)
 app.get('/stream/:id', (req, res) => {
   const videoId = req.params.id;
   res.setHeader('Content-Type', 'audio/mpeg');
