@@ -8,6 +8,14 @@ const { spawn } = require('child_process');
 const path = require('path');
 
 const app = express();
+const os = require('os');
+
+let requestCount = 0;
+
+app.use((req, res, next) => {
+  requestCount++;
+  next();
+});
 const port = process.env.PORT || 3000;
 
 // CONFIGURAÇÕES DE CONTROLE
@@ -381,6 +389,38 @@ app.get('/category/:id', async (req, res) => {
     console.error(e);
     res.status(500).json({ error: 'Erro ao carregar categoria.' }); 
   }
+});
+
+app.get('/status', async (req, res) => {
+  const uptime = process.uptime();
+  const freeMem = os.freemem();
+  const totalMem = os.totalmem();
+  const cpuUsage = os.loadavg(); // [1min, 5min, 15min average]
+
+  const cacheStats = {
+    size: cache.size,
+    keys: Array.from(cache.keys()).map(key => {
+      const data = cache.get(key);
+      return { key, songCount: Array.isArray(data) ? data.length : 0 };
+    })
+  };
+
+  res.json({
+    status: 'online',
+    uptime: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m ${Math.floor(uptime % 60)}s`,
+    memory: {
+      free: `${(freeMem / 1024 / 1024).toFixed(2)} MB`,
+      total: `${(totalMem / 1024 / 1024).toFixed(2)} MB`,
+      usage: `${(((totalMem - freeMem) / totalMem) * 100).toFixed(2)}%`
+    },
+    cpu: {
+      loadAverage: cpuUsage,
+      description: 'Load average over 1, 5, and 15 minutes'
+    },
+    requests: requestCount,
+    cache: cacheStats
+  });
+});
 });
 
 app.get('/search', async (req, res) => {
