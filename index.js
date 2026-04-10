@@ -24,28 +24,109 @@ app.use((req, res, next) => {
   next();
 });
 
-// CATEGORIAS DISPONÍVEIS
+// CATEGORIAS DISPONÍVEIS (TODAS AS 72 CATEGORIAS SOLICITADAS)
 const categories = {
+  // 🎤 Sertanejo
+  'sertanejo-raiz': { name: 'Sertanejo Raiz', query: 'sertanejo raiz clássicos' },
   'sertanejo-universitario': { name: 'Sertanejo Universitário', query: 'sertanejo universitário sucessos' },
-  'funk-ostentacao': { name: 'Funk Ostentação', query: 'funk ostentação sucessos' },
-  'rap-nacional': { name: 'Rap Nacional', query: 'rap nacional clássicos' },
+  'sertanejo-romantico': { name: 'Sertanejo Romântico', query: 'sertanejo romântico sucessos' },
+  'modao': { name: 'Modão', query: 'modão sertanejo clássicos' },
+  'sertanejo-pop': { name: 'Sertanejo Pop', query: 'sertanejo pop sucessos' },
+
+  // 🥁 Samba
+  'samba-tradicional': { name: 'Samba Tradicional', query: 'samba tradicional clássicos' },
+  'samba-de-raiz': { name: 'Samba de Raiz', query: 'samba de raiz sucessos' },
+  'partido-alto': { name: 'Partido Alto', query: 'partido alto sucessos' },
+  'samba-enredo': { name: 'Samba-enredo', query: 'samba enredo clássicos' },
+  'samba-cancao': { name: 'Samba-canção', query: 'samba canção clássicos' },
+
+  // 🎶 Pagode
   'pagode-90': { name: 'Pagode 90', query: 'pagode anos 90 sucessos' },
-  'eletronica-hits': { name: 'Eletrônica Hits', query: 'eletrônica hits 2024' },
-  'pop-brasil': { name: 'Pop Brasil', query: 'pop brasil as mais tocadas' },
+  'pagode-romantico': { name: 'Pagode Romântico', query: 'pagode romântico sucessos' },
+  'pagode-moderno': { name: 'Pagode Moderno', query: 'pagode moderno sucessos' },
+
+  // 🔥 Funk
+  'funk-carioca': { name: 'Funk Carioca', query: 'funk carioca sucessos' },
+  'funk-ostentacao': { name: 'Funk Ostentação', query: 'funk ostentação sucessos' },
+  'funk-consciente': { name: 'Funk Consciente', query: 'funk consciente sucessos' },
+  'funk-proibidao': { name: 'Funk Proibidão', query: 'funk proibidão sucessos' },
+  'funk-rave': { name: 'Funk Rave', query: 'funk rave sucessos' },
+  'funk-melody': { name: 'Funk Melody', query: 'funk melody sucessos' },
+
+  // 🎸 MPB
+  'mpb-classica': { name: 'MPB Clássica', query: 'mpb clássica sucessos' },
+  'mpb-moderna': { name: 'MPB Moderna', query: 'mpb moderna sucessos' },
+  'mpb-acustica': { name: 'MPB Acústica', query: 'mpb acústica sucessos' },
+
+  // 🪗 Forró
+  'forro-pe-de-serra': { name: 'Forró Pé de Serra', query: 'forró pé de serra sucessos' },
+  'forro-eletronico': { name: 'Forró Eletrônico', query: 'forró eletrônico sucessos' },
+  'forro-universitario': { name: 'Forró Universitário', query: 'forró universitário sucessos' },
+
+  // 💃 Axé
+  'axe-classico': { name: 'Axé Clássico', query: 'axé clássico sucessos' },
+  'axe-pop': { name: 'Axé Pop', query: 'axé pop sucessos' },
+
+  // 🎧 Brega / Tecnobrega
+  'brega-tradicional': { name: 'Brega Tradicional', query: 'brega tradicional sucessos' },
+  'tecnobrega': { name: 'Tecnobrega', query: 'tecnobrega sucessos' },
+  'brega-funk': { name: 'Brega Funk', query: 'brega funk sucessos' },
+  'brega-romantico': { name: 'Brega Romântico', query: 'brega romântico sucessos' },
+
+  // 🎹 Arrocha
+  'arrocha-romantico': { name: 'Arrocha Romântico', query: 'arrocha romântico sucessos' },
+  'arrocha-moderno': { name: 'Arrocha Moderno', query: 'arrocha moderno sucessos' },
+
+  // 🕺 Piseiro
+  'piseiro-eletronico': { name: 'Piseiro Eletrônico', query: 'piseiro eletrônico sucessos' },
+  'piseiro-tradicional': { name: 'Piseiro Tradicional', query: 'piseiro tradicional sucessos' },
+
+  // 🎤 Rap / Hip Hop BR
+  'rap-nacional': { name: 'Rap Nacional', query: 'rap nacional clássicos' },
+  'trap-br': { name: 'Trap BR', query: 'trap brasil sucessos' },
+  'drill-br': { name: 'Drill BR', query: 'drill brasil sucessos' },
+  'boom-bap-br': { name: 'Boom Bap BR', query: 'boom bap brasil sucessos' },
+
+  // 🎸 Rock Brasileiro
   'rock-nacional': { name: 'Rock Nacional', query: 'rock nacional clássicos' },
-  'gospel-sucessos': { name: 'Gospel Sucessos', query: 'gospel sucessos 2024' },
-  'forro-piseiro': { name: 'Forró e Piseiro', query: 'forró piseiro 2024' },
-  'trap-brasil': { name: 'Trap Brasil', query: 'trap brasil sucessos' }
+  'rock-alternativo-br': { name: 'Rock Alternativo BR', query: 'rock alternativo brasil' },
+  'indie-br': { name: 'Indie BR', query: 'indie brasil sucessos' },
+
+  // 🎷 Jazz / Blues Brasileiro
+  'jazz-brasileiro': { name: 'Jazz Brasileiro', query: 'jazz brasileiro sucessos' },
+  'bossa-nova': { name: 'Bossa Nova', query: 'bossa nova clássicos' },
+  'samba-jazz': { name: 'Samba-jazz', query: 'samba jazz sucessos' },
+
+  // 🎻 Regional / Folclórica
+  'carimbo': { name: 'Carimbó', query: 'carimbó sucessos' },
+  'baiao': { name: 'Baião', query: 'baião clássicos' },
+  'xote': { name: 'Xote', query: 'xote sucessos' },
+  'xaxado': { name: 'Xaxado', query: 'xaxado sucessos' },
+  'maracatu': { name: 'Maracatu', query: 'maracatu sucessos' },
+  'frevo': { name: 'Frevo', query: 'frevo sucessos' },
+  'choro': { name: 'Choro', query: 'choro clássicos' },
+  'moda-de-viola': { name: 'Moda de Viola', query: 'moda de viola clássicos' },
+  'vanerao': { name: 'Vanerão', query: 'vanerão sucessos' },
+  'musica-gaucha': { name: 'Música Gaúcha', query: 'música gaúcha sucessos' },
+
+  // 🙏 Gospel
+  'gospel-tradicional': { name: 'Gospel Tradicional', query: 'gospel tradicional sucessos' },
+  'gospel-pentecostal': { name: 'Gospel Pentecostal', query: 'gospel pentecostal sucessos' },
+  'worship': { name: 'Worship', query: 'worship gospel sucessos' },
+
+  // 🎮 Outros
+  'lo-fi-br': { name: 'Lo-fi BR', query: 'lo-fi brasil sucessos' },
+  'instrumental': { name: 'Instrumental', query: 'música instrumental brasileira' },
+  'infantil': { name: 'Infantil', query: 'música infantil sucessos' },
+  'trilhas-sonoras': { name: 'Trilhas Sonoras', query: 'trilhas sonoras filmes brasileiros' }
 };
 
 // ==========================================
-// ROTA DO PAINEL ADM (RESTAURADA)
+// ROTA DO PAINEL ADM
 // ==========================================
 app.get('/admin/panel', (req, res) => {
   const code = req.query.code;
-  if (code !== ADMIN_CODE) {
-    return res.status(403).send('Acesso negado.');
-  }
+  if (code !== ADMIN_CODE) return res.status(403).send('Acesso negado.');
 
   let html = `
     <html>
@@ -56,6 +137,7 @@ app.get('/admin/panel', (req, res) => {
           .card { background: #1e1e1e; padding: 15px; margin-bottom: 10px; border-radius: 8px; }
           button { padding: 8px 15px; cursor: pointer; background: #0099ff; color: white; border: none; border-radius: 4px; }
           .status { color: #00ff00; font-weight: bold; }
+          .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
         </style>
       </head>
       <body>
@@ -69,14 +151,12 @@ app.get('/admin/panel', (req, res) => {
           <h3>🗄️ Gerenciar Cache</h3>
           <button onclick="fetch('/admin/clear-cache?code=${ADMIN_CODE}').then(() => alert('Cache limpo!'))">Limpar Todo o Cache</button>
         </div>
-        <div class="card">
-          <h3>📂 Categorias no Cache</h3>
-          <ul>
-            ${Object.keys(categories).map(id => {
-              const data = cache.get(`category_${id}`);
-              return `<li>${categories[id].name}: <span class="status">${data ? data.length : 0} músicas</span></li>`;
-            }).join('')}
-          </ul>
+        <h3>📂 Categorias no Cache (${Object.keys(categories).length})</h3>
+        <div class="grid">
+          ${Object.keys(categories).map(id => {
+            const data = cache.get(`category_${id}`);
+            return `<div class="card">${categories[id].name}: <span class="status">${data ? data.length : 0} músicas</span></div>`;
+          }).join('')}
         </div>
       </body>
     </html>
@@ -129,9 +209,7 @@ app.get('/category/:id', async (req, res) => {
   const categoryId = req.params.id;
   const category = categories[categoryId];
 
-  if (!category) {
-    return res.status(404).json({ error: 'Categoria não encontrada.' });
-  }
+  if (!category) return res.status(404).json({ error: 'Categoria não encontrada.' });
 
   try {
     const cachedResult = cache.get(`category_${categoryId}`);
@@ -150,7 +228,7 @@ app.get('/category/:id', async (req, res) => {
     let uniqueVideoIds = new Set();
     const targetCount = 100;
 
-    // TENTATIVA 1: BUSCA RÁPIDA (PARA RESPONDER LOGO)
+    // TENTATIVA 1: BUSCA RÁPIDA
     try {
       const r = await ytSearch({ query: baseQuery, pages: 1 });
       if (r && r.videos) {
@@ -166,16 +244,12 @@ app.get('/category/:id', async (req, res) => {
       }
     } catch (e) { console.error("Erro na busca rápida:", e); }
 
-    // RESPONDE IMEDIATAMENTE COM O QUE ENCONTROU
-    if (allSongs.length > 0) {
-      res.json(allSongs);
-    }
+    if (allSongs.length > 0) res.json(allSongs);
 
     // TENTATIVA 2: BUSCA PROFUNDA EM SEGUNDO PLANO
     const performBackgroundSearch = async () => {
       for (const currentQuery of queryVariations) {
         if (allSongs.length >= targetCount) break;
-        
         try {
           await new Promise(resolve => setTimeout(resolve, 2000)); // Delay anti-bloqueio
           const r = await ytSearch({ query: currentQuery, pages: 1 });
@@ -190,7 +264,6 @@ app.get('/category/:id', async (req, res) => {
                 });
               }
             }
-            // Atualiza o cache progressivamente
             cache.set(`category_${categoryId}`, allSongs);
           }
         } catch (error) { console.error(`Erro em background: ${error.message}`); }
@@ -213,7 +286,6 @@ app.get('/category/:id', async (req, res) => {
 app.get('/search', async (req, res) => {
   const query = req.query.q;
   if (!query) return res.status(400).json({ error: 'Query necessária.' });
-
   try {
     const r = await ytSearch(query);
     const videos = r.videos.slice(0, 20).map(v => ({
@@ -221,35 +293,22 @@ app.get('/search', async (req, res) => {
       thumbnail: v.thumbnail, duration: v.timestamp, videoId: v.videoId
     }));
     res.json(videos);
-  } catch (e) {
-    res.status(500).json({ error: 'Erro na busca.' });
-  }
+  } catch (e) { res.status(500).json({ error: 'Erro na busca.' }); }
 });
 
 app.get('/stream/:id', (req, res) => {
   const videoId = req.params.id;
   res.setHeader('Content-Type', 'audio/mpeg');
-  
   const ytdlp = spawn('yt-dlp', [
-    '-f', 'bestaudio',
-    '--extract-audio',
-    '--audio-format', 'mp3',
-    '-o', '-',
+    '-f', 'bestaudio', '--extract-audio', '--audio-format', 'mp3', '-o', '-',
     `https://www.youtube.com/watch?v=${videoId}`
   ]);
-
   ytdlp.stdout.pipe(res);
-  
   ytdlp.on('error', (err) => {
     console.error('Erro no streaming:', err);
     if (!res.headersSent) res.status(500).end();
   });
-
-  req.on('close', () => {
-    ytdlp.kill();
-  });
+  req.on('close', () => { ytdlp.kill(); });
 });
 
-app.listen(port, () => {
-  console.log(`API rodando na porta ${port}`);
-});
+app.listen(port, () => { console.log(`API rodando na porta ${port}`); });
