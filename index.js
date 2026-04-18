@@ -15,6 +15,9 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 
+// --- CONFIGURAÇÃO PARA CLOUDFLARE ---
+app.set('trust proxy', 1); // Essencial para funcionar com Cloudflare/Proxies
+
 // CONFIGURAÇÕES DE CONTROLE
 const ADMIN_CODE = process.env.ADMIN_CODE || "@2207";
 const cache = new NodeCache({ stdTTL: 86400 });
@@ -26,12 +29,15 @@ try {
   if (fs.existsSync(DOMAINS_FILE)) {
     const domainsData = JSON.parse(fs.readFileSync(DOMAINS_FILE, 'utf8'));
     authorizedDomains = new Set(domainsData);
-    console.log(`Domínios autorizados carregados: ${Array.from(authorizedDomains).join(', ')}`);
   } else {
+    // PRÉ-AUTORIZANDO SEUS DOMÍNIOS PRINCIPAIS
     authorizedDomains.add('http://localhost:3000');
     authorizedDomains.add('https://api.tminfinity.store');
+    authorizedDomains.add('https://tminfinityweb.shop'); // Seu novo domínio
+    authorizedDomains.add('https://tminfinity.x10.mx'); // Seu site antigo
     fs.writeFileSync(DOMAINS_FILE, JSON.stringify(Array.from(authorizedDomains)));
   }
+  console.log(`Domínios autorizados: ${Array.from(authorizedDomains).join(', ')}`);
 } catch (e) {
   console.error('Erro ao carregar domínios:', e);
 }
@@ -45,7 +51,7 @@ app.use(helmet());
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: 500, // Aumentei o limite para evitar bloqueios falsos
   message: "Muitas requisições deste IP, tente novamente após 15 minutos."
 });
 app.use(apiLimiter);
@@ -58,6 +64,7 @@ app.use((req, res, next) => {
 // Middleware de Autorização de Domínios
 app.use((req, res, next) => {
   const origin = req.headers.origin;
+  // Permitir acesso para o próprio servidor, Painel ADM e /status
   if (req.path.startsWith('/admin') || req.path === '/status' || !origin) {
     return next();
   }
@@ -143,7 +150,7 @@ app.get("/admin/panel", (req, res) => {
   if (code !== ADMIN_CODE) return res.status(403).send("Acesso negado.");
 
   const domainsList = Array.from(authorizedDomains).map(d => 
-    `<li>${d} <button onclick="removeDomain('${d}')" style="background: #dc3545;">Remover</button></li>`
+    `<li>${d} <button onclick="removeDomain('${d}')" style="background: #dc3545; padding: 5px; margin-left: 10px;">Remover</button></li>`
   ).join('');
 
   const categoriesGrid = Object.keys(categories).map(id => {
@@ -155,16 +162,20 @@ app.get("/admin/panel", (req, res) => {
     <html>
       <head>
         <title>Painel ADM - TM Infinity</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
-          body { font-family: sans-serif; padding: 20px; background: #121212; color: white; }
+          body { font-family: sans-serif; padding: 10px; background: #121212; color: white; }
           .card { background: #1e1e1e; padding: 15px; margin-bottom: 10px; border-radius: 8px; }
-          button { padding: 8px 15px; cursor: pointer; background: #0099ff; color: white; border: none; border-radius: 4px; }
+          button { padding: 10px 15px; cursor: pointer; background: #0099ff; color: white; border: none; border-radius: 4px; font-weight: bold; }
           .status { color: #00ff00; font-weight: bold; }
-          .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+          .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+          input { padding: 10px; width: 100%; max-width: 300px; background: #333; color: white; border: 1px solid #555; border-radius: 4px; margin-bottom: 10px; }
+          ul { list-style: none; padding: 0; }
+          li { background: #252525; padding: 10px; margin-bottom: 5px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
         </style>
       </head>
       <body>
-        <h1>🚀 Painel Administrativo TM Infinity</h1>
+        <h1>🚀 Painel ADM TM Infinity</h1>
         <div class="card">
           <h3>📊 Status do Servidor</h3>
           <p>Uptime: ${Math.floor(process.uptime() / 3600)}h | Requisições: ${requestCount}</p>
@@ -172,32 +183,34 @@ app.get("/admin/panel", (req, res) => {
         </div>
         <div class="card">
           <h3>🗄️ Gerenciar Cache</h3>
-          <button onclick="fetch('/admin/clear-cache?code=${ADMIN_CODE}').then(() => alert('Cache limpo!'))">Limpar Todo o Cache</button>
+          <button onclick="clearCache()">Limpar Todo o Cache</button>
         </div>
         <div class="card">
-          <h3>🛡️ Gerenciar Domínios Autorizados</h3>
-          <input type="text" id="newDomain" placeholder="Ex: https://seusite.com" style="padding: 5px; width: 200px; margin-right: 5px; background: #333; color: white; border: 1px solid #555;"/>
+          <h3>🛡️ Domínios Autorizados</h3>
+          <input type="text" id="newDomain" placeholder="Ex: https://seusite.com"/>
           <button onclick="addDomain()">Adicionar Domínio</button>
-          <ul id="domainList" style="list-style: none; padding: 0;">${domainsList}</ul>
+          <ul id="domainList">${domainsList}</ul>
         </div>
         <h3>📂 Categorias no Cache (${Object.keys(categories).length})</h3>
         <div class="grid">${categoriesGrid}</div>
         <script>
-          async function addDomain() {
-            const newDomain = document.getElementById('newDomain').value;
-            if (newDomain) {
-              const response = await fetch('/admin/add-domain?code=${ADMIN_CODE}&domain=' + encodeURIComponent(newDomain));
-              const result = await response.json();
-              alert(result.message);
-              if (result.success) location.reload();
+          const code = '${ADMIN_CODE}';
+          function clearCache() {
+            fetch('/admin/clear-cache?code=' + code).then(() => alert('Cache limpo!'));
+          }
+          function addDomain() {
+            const domain = document.getElementById('newDomain').value;
+            if (domain) {
+              fetch('/admin/add-domain?code=' + code + '&domain=' + encodeURIComponent(domain))
+                .then(r => r.json())
+                .then(res => { alert(res.message); location.reload(); });
             }
           }
-          async function removeDomain(domain) {
-            if (confirm('Tem certeza que deseja remover ' + domain + '?')) {
-              const response = await fetch('/admin/remove-domain?code=${ADMIN_CODE}&domain=' + encodeURIComponent(domain));
-              const result = await response.json();
-              alert(result.message);
-              if (result.success) location.reload();
+          function removeDomain(domain) {
+            if (confirm('Remover ' + domain + '?')) {
+              fetch('/admin/remove-domain?code=' + code + '&domain=' + encodeURIComponent(domain))
+                .then(r => r.json())
+                .then(res => { alert(res.message); location.reload(); });
             }
           }
         </script>
@@ -221,7 +234,7 @@ app.get("/admin/add-domain", (req, res) => {
   if (!domain) return res.status(400).json({ error: "Domínio não fornecido." });
   authorizedDomains.add(domain);
   fs.writeFileSync(DOMAINS_FILE, JSON.stringify(Array.from(authorizedDomains)));
-  res.json({ success: true, message: `Domínio ${domain} adicionado.` });
+  res.json({ success: true, message: "Domínio adicionado com sucesso." });
 });
 
 app.get("/admin/remove-domain", (req, res) => {
@@ -231,7 +244,7 @@ app.get("/admin/remove-domain", (req, res) => {
   if (!domain) return res.status(400).json({ error: "Domínio não fornecido." });
   authorizedDomains.delete(domain);
   fs.writeFileSync(DOMAINS_FILE, JSON.stringify(Array.from(authorizedDomains)));
-  res.json({ success: true, message: `Domínio ${domain} removido.` });
+  res.json({ success: true, message: "Domínio removido com sucesso." });
 });
 
 app.get("/status", (req, res) => {
