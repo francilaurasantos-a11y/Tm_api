@@ -23,7 +23,7 @@ const ADMIN_CODE = process.env.ADMIN_CODE || "@2207";
 const cache = new NodeCache({ stdTTL: 86400 });
 
 let authorizedDomains = new Set();
-let pendingRequests = new Set(); // Lista de domínios que tentaram acessar e foram negados
+let pendingRequests = new Set();
 
 const DOMAINS_FILE = path.join(__dirname, 'authorized_domains.json');
 
@@ -46,7 +46,7 @@ let requestCount = 0;
 // --- MIDDLEWARES DE SEGURANÇA ---
 app.use(cors());
 app.use(express.json());
-app.use(helmet());
+app.use(helmet({ contentSecurityPolicy: false })); // Desativar CSP para permitir scripts inline no painel
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -60,7 +60,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Middleware de Autorização de Domínios com Captura de Pendentes
+// Middleware de Autorização de Domínios
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   if (req.path.startsWith('/admin') || req.path === '/status' || !origin) {
@@ -70,7 +70,6 @@ app.use((req, res, next) => {
   if (authorizedDomains.has(origin)) {
     next();
   } else {
-    // CAPTURA O DOMÍNIO QUE TENTOU ACESSAR E ADICIONA AOS PENDENTES
     if (!pendingRequests.has(origin)) {
       pendingRequests.add(origin);
       console.log(`Nova solicitação de acesso pendente: ${origin}`);
@@ -153,14 +152,14 @@ app.get("/admin/panel", (req, res) => {
   if (code !== ADMIN_CODE) return res.status(403).send("Acesso negado.");
 
   const domainsList = Array.from(authorizedDomains).map(d => 
-    `<li>${d} <button onclick="removeDomain('${d}')" style="background: #dc3545; padding: 5px; margin-left: 10px;">Remover</button></li>`
+    `<li>${d} <button onclick="handleAction('remove-domain', '${d}')" style="background: #dc3545; padding: 5px; margin-left: 10px;">Remover</button></li>`
   ).join('');
 
   const pendingList = Array.from(pendingRequests).map(d => 
     `<li>${d} 
       <div style="margin-top: 5px;">
-        <button onclick="addDomain('${d}')" style="background: #28a745;">✅ Autorizar</button>
-        <button onclick="rejectDomain('${d}')" style="background: #dc3545; margin-left: 5px;">❌ Recusar</button>
+        <button onclick="handleAction('add-domain', '${d}')" style="background: #28a745;">✅ Autorizar</button>
+        <button onclick="handleAction('reject-domain', '${d}')" style="background: #dc3545; margin-left: 5px;">❌ Recusar</button>
       </div>
     </li>`
   ).join('');
@@ -208,7 +207,7 @@ app.get("/admin/panel", (req, res) => {
 
         <div class="card">
           <h3>🗄️ Gerenciar Cache</h3>
-          <button onclick="clearCache()">Limpar Todo o Cache</button>
+          <button onclick="handleAction('clear-cache')">Limpar Todo o Cache</button>
         </div>
 
         <h3>📂 Categorias no Cache (${Object.keys(categories).length})</h3>
@@ -216,25 +215,19 @@ app.get("/admin/panel", (req, res) => {
 
         <script>
           const code = '${ADMIN_CODE}';
-          function clearCache() {
-            fetch('/admin/clear-cache?code=' + code).then(() => alert('Cache limpo!'));
-          }
-          function addDomain(domain) {
-            fetch('/admin/add-domain?code=' + code + '&domain=' + encodeURIComponent(domain))
+          function handleAction(action, domain = '') {
+            let url = '/admin/' + action + '?code=' + code;
+            if (domain) url += '&domain=' + encodeURIComponent(domain);
+            
+            if (action === 'remove-domain' && !confirm('Remover ' + domain + '?')) return;
+
+            fetch(url)
               .then(r => r.json())
-              .then(res => { alert(res.message); location.reload(); });
-          }
-          function removeDomain(domain) {
-            if (confirm('Remover ' + domain + '?')) {
-              fetch('/admin/remove-domain?code=' + code + '&domain=' + encodeURIComponent(domain))
-                .then(r => r.json())
-                .then(res => { alert(res.message); location.reload(); });
-            }
-          }
-          function rejectDomain(domain) {
-            fetch('/admin/reject-domain?code=' + code + '&domain=' + encodeURIComponent(domain))
-              .then(r => r.json())
-              .then(res => { alert(res.message); location.reload(); });
+              .then(res => {
+                alert(res.message);
+                location.reload();
+              })
+              .catch(err => alert('Erro ao processar ação: ' + err));
           }
         </script>
       </body>
@@ -256,7 +249,7 @@ app.get("/admin/add-domain", (req, res) => {
   if (code !== ADMIN_CODE) return res.status(403).json({ error: "Acesso negado." });
   if (!domain) return res.status(400).json({ error: "Domínio não fornecido." });
   authorizedDomains.add(domain);
-  pendingRequests.delete(domain); // Remove dos pendentes ao autorizar
+  pendingRequests.delete(domain);
   fs.writeFileSync(DOMAINS_FILE, JSON.stringify(Array.from(authorizedDomains)));
   res.json({ success: true, message: "Domínio autorizado com sucesso." });
 });
