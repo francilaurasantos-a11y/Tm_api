@@ -8,7 +8,6 @@ const path = require("path");
 const fs = require("fs");
 const dotenv = require("dotenv");
 const rateLimit = require("express-rate-limit");
-const helmet = require("helmet");
 
 dotenv.config();
 
@@ -35,6 +34,7 @@ try {
     authorizedDomains.add('http://localhost:3000');
     authorizedDomains.add('https://api.tminfinity.store');
     authorizedDomains.add('https://tminfinityweb.shop');
+    authorizedDomains.add('https://tminfinity.x10.mx');
     fs.writeFileSync(DOMAINS_FILE, JSON.stringify(Array.from(authorizedDomains)));
   }
 } catch (e) {
@@ -43,15 +43,15 @@ try {
 
 let requestCount = 0;
 
-// --- MIDDLEWARES DE SEGURANÇA ---
+// --- MIDDLEWARES ---
 app.use(cors());
 app.use(express.json());
-app.use(helmet({ contentSecurityPolicy: false })); // Desativar CSP para permitir scripts inline no painel
 
+// Rate Limit ajustado para não bloquear o streaming
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 1000,
-  message: "Muitas requisições deste IP, tente novamente após 15 minutos."
+  max: 2000,
+  message: "Muitas requisições, tente novamente mais tarde."
 });
 app.use(apiLimiter);
 
@@ -63,7 +63,7 @@ app.use((req, res, next) => {
 // Middleware de Autorização de Domínios
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (req.path.startsWith('/admin') || req.path === '/status' || !origin) {
+  if (req.path.startsWith('/admin') || req.path === '/status' || req.path.startsWith('/stream') || !origin) {
     return next();
   }
 
@@ -72,7 +72,6 @@ app.use((req, res, next) => {
   } else {
     if (!pendingRequests.has(origin)) {
       pendingRequests.add(origin);
-      console.log(`Nova solicitação de acesso pendente: ${origin}`);
     }
     res.status(403).json({ error: 'Acesso negado. Domínio não autorizado.' });
   }
@@ -188,46 +187,32 @@ app.get("/admin/panel", (req, res) => {
       </head>
       <body>
         <h1>🚀 Painel ADM TM Infinity</h1>
-        
         <div class="card pending-section">
           <h3>🔔 Solicitações de Acesso Pendentes (${pendingRequests.size})</h3>
           <ul id="pendingList">${pendingList || '<li>Nenhuma solicitação pendente.</li>'}</ul>
         </div>
-
         <div class="card">
           <h3>📊 Status do Servidor</h3>
           <p>Uptime: ${Math.floor(process.uptime() / 3600)}h | Requisições: ${requestCount}</p>
           <p>Memória: ${(((os.totalmem() - os.freemem()) / os.totalmem()) * 100).toFixed(2)}% em uso</p>
         </div>
-
         <div class="card">
           <h3>🛡️ Domínios Autorizados</h3>
           <ul id="domainList">${domainsList}</ul>
         </div>
-
         <div class="card">
           <h3>🗄️ Gerenciar Cache</h3>
           <button onclick="handleAction('clear-cache')">Limpar Todo o Cache</button>
         </div>
-
         <h3>📂 Categorias no Cache (${Object.keys(categories).length})</h3>
         <div class="grid">${categoriesGrid}</div>
-
         <script>
           const code = '${ADMIN_CODE}';
           function handleAction(action, domain = '') {
             let url = '/admin/' + action + '?code=' + code;
             if (domain) url += '&domain=' + encodeURIComponent(domain);
-            
             if (action === 'remove-domain' && !confirm('Remover ' + domain + '?')) return;
-
-            fetch(url)
-              .then(r => r.json())
-              .then(res => {
-                alert(res.message);
-                location.reload();
-              })
-              .catch(err => alert('Erro ao processar ação: ' + err));
+            fetch(url).then(r => r.json()).then(res => { alert(res.message); location.reload(); }).catch(err => alert('Erro: ' + err));
           }
         </script>
       </body>
@@ -251,7 +236,7 @@ app.get("/admin/add-domain", (req, res) => {
   authorizedDomains.add(domain);
   pendingRequests.delete(domain);
   fs.writeFileSync(DOMAINS_FILE, JSON.stringify(Array.from(authorizedDomains)));
-  res.json({ success: true, message: "Domínio autorizado com sucesso." });
+  res.json({ success: true, message: "Domínio autorizado." });
 });
 
 app.get("/admin/remove-domain", (req, res) => {
@@ -261,7 +246,7 @@ app.get("/admin/remove-domain", (req, res) => {
   if (!domain) return res.status(400).json({ error: "Domínio não fornecido." });
   authorizedDomains.delete(domain);
   fs.writeFileSync(DOMAINS_FILE, JSON.stringify(Array.from(authorizedDomains)));
-  res.json({ success: true, message: "Domínio removido com sucesso." });
+  res.json({ success: true, message: "Domínio removido." });
 });
 
 app.get("/admin/reject-domain", (req, res) => {
@@ -347,9 +332,25 @@ app.get("/search", async (req, res) => {
 app.get("/stream/:id", (req, res) => {
   const videoId = req.params.id;
   res.setHeader("Content-Type", "audio/mpeg");
-  const ytdlp = spawn("yt-dlp", ["-f", "bestaudio", "--extract-audio", "--audio-format", "mp3", "-o", "-", `https://www.youtube.com/watch?v=${videoId}`]);
+  
+  const ytdlp = spawn("yt-dlp", [
+    "-f", "bestaudio",
+    "--extract-audio",
+    "--audio-format", "mp3",
+    "-o", "-",
+    `https://www.youtube.com/watch?v=${videoId}`
+  ]);
+
   ytdlp.stdout.pipe(res);
-  req.on("close", () => { ytdlp.kill(); });
+
+  ytdlp.on("error", (err) => {
+    console.error("Erro no streaming:", err);
+    if (!res.headersSent) res.status(500).end();
+  });
+
+  req.on("close", () => {
+    ytdlp.kill();
+  });
 });
 
 app.listen(port, () => { console.log(`API rodando na porta ${port}`); });
