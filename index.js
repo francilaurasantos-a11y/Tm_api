@@ -16,13 +16,15 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // --- CONFIGURAÇÃO PARA CLOUDFLARE ---
-app.set('trust proxy', 1); // Essencial para funcionar com Cloudflare/Proxies
+app.set('trust proxy', 1);
 
 // CONFIGURAÇÕES DE CONTROLE
 const ADMIN_CODE = process.env.ADMIN_CODE || "@2207";
 const cache = new NodeCache({ stdTTL: 86400 });
 
 let authorizedDomains = new Set();
+let pendingRequests = new Set(); // Lista de domínios que tentaram acessar e foram negados
+
 const DOMAINS_FILE = path.join(__dirname, 'authorized_domains.json');
 
 try {
@@ -30,14 +32,11 @@ try {
     const domainsData = JSON.parse(fs.readFileSync(DOMAINS_FILE, 'utf8'));
     authorizedDomains = new Set(domainsData);
   } else {
-    // PRÉ-AUTORIZANDO SEUS DOMÍNIOS PRINCIPAIS
     authorizedDomains.add('http://localhost:3000');
     authorizedDomains.add('https://api.tminfinity.store');
-    authorizedDomains.add('https://tminfinityweb.shop'); // Seu novo domínio
-    authorizedDomains.add('https://tminfinity.x10.mx'); // Seu site antigo
+    authorizedDomains.add('https://tminfinityweb.shop');
     fs.writeFileSync(DOMAINS_FILE, JSON.stringify(Array.from(authorizedDomains)));
   }
-  console.log(`Domínios autorizados: ${Array.from(authorizedDomains).join(', ')}`);
 } catch (e) {
   console.error('Erro ao carregar domínios:', e);
 }
@@ -51,7 +50,7 @@ app.use(helmet());
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 500, // Aumentei o limite para evitar bloqueios falsos
+  max: 1000,
   message: "Muitas requisições deste IP, tente novamente após 15 minutos."
 });
 app.use(apiLimiter);
@@ -61,17 +60,21 @@ app.use((req, res, next) => {
   next();
 });
 
-// Middleware de Autorização de Domínios
+// Middleware de Autorização de Domínios com Captura de Pendentes
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  // Permitir acesso para o próprio servidor, Painel ADM e /status
   if (req.path.startsWith('/admin') || req.path === '/status' || !origin) {
     return next();
   }
+
   if (authorizedDomains.has(origin)) {
     next();
   } else {
-    console.warn(`Acesso negado para domínio não autorizado: ${origin}`);
+    // CAPTURA O DOMÍNIO QUE TENTOU ACESSAR E ADICIONA AOS PENDENTES
+    if (!pendingRequests.has(origin)) {
+      pendingRequests.add(origin);
+      console.log(`Nova solicitação de acesso pendente: ${origin}`);
+    }
     res.status(403).json({ error: 'Acesso negado. Domínio não autorizado.' });
   }
 });
@@ -153,6 +156,15 @@ app.get("/admin/panel", (req, res) => {
     `<li>${d} <button onclick="removeDomain('${d}')" style="background: #dc3545; padding: 5px; margin-left: 10px;">Remover</button></li>`
   ).join('');
 
+  const pendingList = Array.from(pendingRequests).map(d => 
+    `<li>${d} 
+      <div style="margin-top: 5px;">
+        <button onclick="addDomain('${d}')" style="background: #28a745;">✅ Autorizar</button>
+        <button onclick="rejectDomain('${d}')" style="background: #dc3545; margin-left: 5px;">❌ Recusar</button>
+      </div>
+    </li>`
+  ).join('');
+
   const categoriesGrid = Object.keys(categories).map(id => {
     const data = cache.get(`category_${id}`);
     return `<div class="card">${categories[id].name}: <span class="status">${data ? data.length : 0} músicas</span></div>`;
@@ -169,42 +181,48 @@ app.get("/admin/panel", (req, res) => {
           button { padding: 10px 15px; cursor: pointer; background: #0099ff; color: white; border: none; border-radius: 4px; font-weight: bold; }
           .status { color: #00ff00; font-weight: bold; }
           .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
-          input { padding: 10px; width: 100%; max-width: 300px; background: #333; color: white; border: 1px solid #555; border-radius: 4px; margin-bottom: 10px; }
           ul { list-style: none; padding: 0; }
-          li { background: #252525; padding: 10px; margin-bottom: 5px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
+          li { background: #252525; padding: 10px; margin-bottom: 5px; border-radius: 4px; display: flex; flex-direction: column; }
+          @media (min-width: 600px) { li { flex-direction: row; justify-content: space-between; align-items: center; } }
+          .pending-section { border: 2px solid #ffc107; }
         </style>
       </head>
       <body>
         <h1>🚀 Painel ADM TM Infinity</h1>
+        
+        <div class="card pending-section">
+          <h3>🔔 Solicitações de Acesso Pendentes (${pendingRequests.size})</h3>
+          <ul id="pendingList">${pendingList || '<li>Nenhuma solicitação pendente.</li>'}</ul>
+        </div>
+
         <div class="card">
           <h3>📊 Status do Servidor</h3>
           <p>Uptime: ${Math.floor(process.uptime() / 3600)}h | Requisições: ${requestCount}</p>
           <p>Memória: ${(((os.totalmem() - os.freemem()) / os.totalmem()) * 100).toFixed(2)}% em uso</p>
         </div>
+
+        <div class="card">
+          <h3>🛡️ Domínios Autorizados</h3>
+          <ul id="domainList">${domainsList}</ul>
+        </div>
+
         <div class="card">
           <h3>🗄️ Gerenciar Cache</h3>
           <button onclick="clearCache()">Limpar Todo o Cache</button>
         </div>
-        <div class="card">
-          <h3>🛡️ Domínios Autorizados</h3>
-          <input type="text" id="newDomain" placeholder="Ex: https://seusite.com"/>
-          <button onclick="addDomain()">Adicionar Domínio</button>
-          <ul id="domainList">${domainsList}</ul>
-        </div>
+
         <h3>📂 Categorias no Cache (${Object.keys(categories).length})</h3>
         <div class="grid">${categoriesGrid}</div>
+
         <script>
           const code = '${ADMIN_CODE}';
           function clearCache() {
             fetch('/admin/clear-cache?code=' + code).then(() => alert('Cache limpo!'));
           }
-          function addDomain() {
-            const domain = document.getElementById('newDomain').value;
-            if (domain) {
-              fetch('/admin/add-domain?code=' + code + '&domain=' + encodeURIComponent(domain))
-                .then(r => r.json())
-                .then(res => { alert(res.message); location.reload(); });
-            }
+          function addDomain(domain) {
+            fetch('/admin/add-domain?code=' + code + '&domain=' + encodeURIComponent(domain))
+              .then(r => r.json())
+              .then(res => { alert(res.message); location.reload(); });
           }
           function removeDomain(domain) {
             if (confirm('Remover ' + domain + '?')) {
@@ -212,6 +230,11 @@ app.get("/admin/panel", (req, res) => {
                 .then(r => r.json())
                 .then(res => { alert(res.message); location.reload(); });
             }
+          }
+          function rejectDomain(domain) {
+            fetch('/admin/reject-domain?code=' + code + '&domain=' + encodeURIComponent(domain))
+              .then(r => r.json())
+              .then(res => { alert(res.message); location.reload(); });
           }
         </script>
       </body>
@@ -233,8 +256,9 @@ app.get("/admin/add-domain", (req, res) => {
   if (code !== ADMIN_CODE) return res.status(403).json({ error: "Acesso negado." });
   if (!domain) return res.status(400).json({ error: "Domínio não fornecido." });
   authorizedDomains.add(domain);
+  pendingRequests.delete(domain); // Remove dos pendentes ao autorizar
   fs.writeFileSync(DOMAINS_FILE, JSON.stringify(Array.from(authorizedDomains)));
-  res.json({ success: true, message: "Domínio adicionado com sucesso." });
+  res.json({ success: true, message: "Domínio autorizado com sucesso." });
 });
 
 app.get("/admin/remove-domain", (req, res) => {
@@ -245,6 +269,14 @@ app.get("/admin/remove-domain", (req, res) => {
   authorizedDomains.delete(domain);
   fs.writeFileSync(DOMAINS_FILE, JSON.stringify(Array.from(authorizedDomains)));
   res.json({ success: true, message: "Domínio removido com sucesso." });
+});
+
+app.get("/admin/reject-domain", (req, res) => {
+  const code = req.query.code;
+  const domain = req.query.domain;
+  if (code !== ADMIN_CODE) return res.status(403).json({ error: "Acesso negado." });
+  pendingRequests.delete(domain);
+  res.json({ success: true, message: "Solicitação recusada." });
 });
 
 app.get("/status", (req, res) => {
