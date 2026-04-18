@@ -17,6 +17,23 @@ const port = process.env.PORT || 3000;
 const ADMIN_CODE = process.env.ADMIN_CODE || "@2207"; // Código ADM do .env ou padrão
 const cache = new NodeCache({ stdTTL: 86400 }); // Cache de 24 horas
 
+let authorizedDomains = new Set(); // Conjunto para armazenar domínios autorizados
+
+// Carregar domínios autorizados de um arquivo (para persistência)
+const DOMAINS_FILE = path.join(__dirname, 'authorized_domains.json');
+try {
+  const domainsData = require(DOMAINS_FILE);
+  authorizedDomains = new Set(domainsData);
+  console.log(`Domínios autorizados carregados: ${Array.from(authorizedDomains).join(', ')}`);
+} catch (e) {
+  console.log('Nenhum arquivo de domínios autorizados encontrado. Iniciando com lista vazia.');
+  // Adicionar um domínio padrão para testes, se a lista estiver vazia
+  authorizedDomains.add('http://localhost:3000');
+  authorizedDomains.add('https://api.tminfinity.store');
+  // Salvar para criar o arquivo
+  require('fs').writeFileSync(DOMAINS_FILE, JSON.stringify(Array.from(authorizedDomains)));
+}
+
 let requestCount = 0;
 
 // --- MIDDLEWARES DE SEGURANÇA ---
@@ -36,6 +53,22 @@ app.use(apiLimiter);
 app.use((req, res, next) => {
   requestCount++;
   next();
+});
+
+// Middleware de Autorização de Domínios
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  // Permitir acesso para o próprio servidor (localhost) e para o Painel ADM e /status
+  if (req.path.startsWith('/admin') || req.path === '/status' || !origin) {
+    return next();
+  }
+
+  if (authorizedDomains.has(origin)) {
+    next();
+  } else {
+    console.warn(`Acesso negado para domínio não autorizado: ${origin}`);
+    res.status(403).json({ error: 'Acesso negado. Domínio não autorizado.' });
+  }
 });
 
 // CATEGORIAS DISPONÍVEIS (TODAS AS 72 CATEGORIAS SOLICITADAS)
@@ -164,8 +197,17 @@ app.get("/admin/panel", (req, res) => {
           <p>Memória: ${(((os.totalmem() - os.freemem()) / os.totalmem()) * 100).toFixed(2)}% em uso</p>
         </div>
         <div class="card">
-          <h3>🗄️ Gerenciar Cache</h3>
-          <button onclick="fetch('/admin/clear-cache?code=${ADMIN_CODE}').then(() => alert('Cache limpo!'))">Limpar Todo o Cache</button>
+          <h3>🗄️ Gerenciar Cache</h3>          <button onclick="fetch(\'/admin/clear-cache?code=${ADMIN_CODE}\').then(() => alert(\'Cache limpo!\'))">Limpar Todo o Cache</button>
+        </div>
+        <div class="card">
+          <h3>🛡️ Gerenciar Domínios Autorizados</h3>
+          <input type="text" id="newDomain" placeholder="Ex: https://seusite.com" style="padding: 5px; width: 200px; margin-right: 5px; background: #333; color: white; border: 1px solid #555;"/>
+          <button onclick="addDomain()">Adicionar Domínio</button>
+          <ul id="domainList" style="list-style: none; padding: 0;">
+            ${Array.from(authorizedDomains).map(domain => `
+              <li style="margin-top: 5px;">${domain} <button onclick="removeDomain(\'${domain}\')" style="background: #dc3545;">Remover</button></li>
+            `).join('')}
+          </ul>
         </div>
         <h3>📂 Categorias no Cache (${Object.keys(categories).length})</h3>
         <div class="grid">
@@ -174,19 +216,57 @@ app.get("/admin/panel", (req, res) => {
             return `<div class="card">${categories[id].name}: <span class="status">${data ? data.length : 0} músicas</span></div>`;
           }).join("")}
         </div>
+        <script>
+          async function addDomain() {
+            const newDomain = document.getElementById('newDomain').value;
+            if (newDomain) {
+              const response = await fetch(`/admin/add-domain?code=${ADMIN_CODE}&domain=${encodeURIComponent(newDomain)}`);
+              const result = await response.json();
+              alert(result.message);
+              if (result.success) location.reload();
+            }
+          }
+          async function removeDomain(domain) {
+            if (confirm(`Tem certeza que deseja remover ${domain}?`)) {
+              const response = await fetch(`/admin/remove-domain?code=${ADMIN_CODE}&domain=${encodeURIComponent(domain)}`);
+              const result = await response.json();
+              alert(result.message);
+              if (result.success) location.reload();
+            }
+          }
+        </script>
       </body>
     </html>
   `;
   res.send(html);
-});
-
-app.get("/admin/clear-cache", (req, res) => {
+});app.get("/admin/clear-cache", (req, res) => {
   const code = req.query.code;
   if (code !== ADMIN_CODE) return res.status(403).json({ error: "Acesso negado." });
   cache.flushAll();
   res.json({ success: true, message: "Cache limpo com sucesso." });
 });
 
+app.get("/admin/add-domain", (req, res) => {
+  const code = req.query.code;
+  const domain = req.query.domain;
+  if (code !== ADMIN_CODE) return res.status(403).json({ error: "Acesso negado." });
+  if (!domain) return res.status(400).json({ error: "Domínio não fornecido." });
+
+  authorizedDomains.add(domain);
+  require('fs').writeFileSync(DOMAINS_FILE, JSON.stringify(Array.from(authorizedDomains)));
+  res.json({ success: true, message: `Domínio ${domain} adicionado com sucesso.` });
+});
+
+app.get("/admin/remove-domain", (req, res) => {
+  const code = req.query.code;
+  const domain = req.query.domain;
+  if (code !== ADMIN_CODE) return res.status(403).json({ error: "Acesso negado." });
+  if (!domain) return res.status(400).json({ error: "Domínio não fornecido." });
+
+  authorizedDomains.delete(domain);
+  require('fs').writeFileSync(DOMAINS_FILE, JSON.stringify(Array.from(authorizedDomains)));
+  res.json({ success: true, message: `Domínio ${domain} removido com sucesso.` });
+});
 // ==========================================
 // ENDPOINT DE STATUS PARA O BOT
 // ==========================================
