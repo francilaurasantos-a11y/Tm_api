@@ -47,7 +47,6 @@ let requestCount = 0;
 app.use(cors());
 app.use(express.json());
 
-// Rate Limit ajustado para não bloquear o streaming
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 2000,
@@ -298,7 +297,8 @@ app.get("/category/:id", async (req, res) => {
       for (const currentQuery of queryVariations) {
         if (allSongs.length >= 100) break;
         try {
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          // GARIMPO LENTO: Aumentei o delay para 5 segundos para evitar bloqueios
+          await new Promise(resolve => setTimeout(resolve, 5000));
           const r = await ytSearch({ query: currentQuery, pages: 1 });
           if (r && r.videos) {
             for (const v of r.videos) {
